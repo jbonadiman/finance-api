@@ -1,8 +1,8 @@
 package main
 
 import (
-	"PersonalFinanceBot/services"
 	"fmt"
+	"github.com/jbonadiman/personal-finance-bot/services"
 )
 
 const (
