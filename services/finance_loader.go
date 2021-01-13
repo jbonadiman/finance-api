@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MsTokenName = "MS_GRAPH_TOKEN"
+	MsTokenVarName = "MS_GRAPH_TOKEN"
 )
 
 const (
@@ -34,7 +34,7 @@ type Task struct {
 }
 
 func GetTasks(taskListId string) *[]Task {
-	bearerToken := "Bearer " + os.Getenv(MsTokenName)
+	bearerToken := "Bearer " + os.Getenv(MsTokenVarName)
 
 	tasksUrl := fmt.Sprintf(TodoTasksUrl, taskListId)
 
