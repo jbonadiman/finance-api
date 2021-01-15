@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/jbonadiman/personal-finance-bot/services"
+	"github.com/jbonadiman/personal-finance-bot/src/entities"
+	"github.com/jbonadiman/personal-finance-bot/src/services"
+	"github.com/jbonadiman/personal-finance-bot/src/utils"
 	"log"
 	"strconv"
 	"strings"
@@ -16,12 +18,12 @@ const (
 func main() {
 	var taskList = services.GetTasks(TaskListId)
 
-	pool, err := GetPool(2)
+	pool, err := utils.GetPool(2)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	repository := NewMongoRepository(pool)
+	repository := utils.NewMongoRepository(pool)
 
 	for _, task := range *taskList {
 		splittedValues := strings.Split(task.Title, ";")
@@ -33,13 +35,13 @@ func main() {
 			log.Fatal(err)
 		}
 
-		transaction := Transaction{
+		transaction := entities.Transaction{
 			Date:        task.CreatedAt,
 			CreatedAt:   time.Now(),
 			ModifiedAt:  time.Now(),
 			Description: splittedValues[1],
 			Value:       convertedValue,
-			Category:    Category{},
+			Category:    entities.Category{},
 		}
 
 		err = repository.Store(&transaction)
@@ -51,7 +53,7 @@ func main() {
 		fmt.Println("createdAt", task.CreatedAt)
 		fmt.Println("status", task.Status)
 		fmt.Println("============================")
-		
+
 		return
 	}
 

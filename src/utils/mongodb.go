@@ -1,6 +1,8 @@
-package main
+package utils
 
 import (
+	"github.com/jbonadiman/personal-finance-bot/src/entities"
+	"github.com/jbonadiman/personal-finance-bot/src/repositories"
 	"github.com/juju/mgosession"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/mgo.v2"
@@ -17,8 +19,8 @@ type repo struct {
 	pool *mgosession.Pool
 }
 
-func NewMongoRepository(p *mgosession.Pool) Repository {
-	return &repo {
+func NewMongoRepository(p *mgosession.Pool) repositories.Repository {
+	return &repo{
 		pool: p,
 	}
 }
@@ -34,8 +36,8 @@ func GetPool(maxSessions int) (*mgosession.Pool, error){
 	return pool, nil
 }
 
-func (r *repo) Find(id primitive.ObjectID) (*Transaction, error) {
-	result := Transaction{}
+func (r *repo) Find(id primitive.ObjectID) (*entities.Transaction, error) {
+	result := entities.Transaction{}
 
 	session := r.pool.Session(nil)
 
@@ -49,27 +51,27 @@ func (r *repo) Find(id primitive.ObjectID) (*Transaction, error) {
 	return &result, nil
 }
 
-func (r *repo) FindByDate(date time.Time) (*[]Transaction, error) {
+func (r *repo) FindByDate(date time.Time) (*[]entities.Transaction, error) {
 	panic("implement me")
 }
 
-func (r *repo) FindByCategory(category Category) (*[]Transaction, error) {
+func (r *repo) FindByCategory(category entities.Category) (*[]entities.Transaction, error) {
 	panic("implement me")
 }
 
-func (r *repo) FindByPeriod(startDate time.Time, endDate time.Time) (*[]Transaction, error) {
+func (r *repo) FindByPeriod(startDate time.Time, endDate time.Time) (*[]entities.Transaction, error) {
 	panic("implement me")
 }
 
-func (r *repo) FindAll() (*[]Transaction, error) {
+func (r *repo) FindAll() (*[]entities.Transaction, error) {
 	panic("implement me")
 }
 
-func (r *repo) Update(transaction *Transaction) error {
+func (r *repo) Update(transaction *entities.Transaction) error {
 	panic("implement me")
 }
 
-func (r *repo) Store(transaction *Transaction) error {
+func (r *repo) Store(transaction *entities.Transaction) error {
 	session := r.pool.Session(nil)
 
 	coll := session.DB(os.Getenv("MONGODB_DATABASE")).C("transactions")
