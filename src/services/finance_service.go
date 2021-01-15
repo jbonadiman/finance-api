@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/oauth2"
 	"log"
 	"net/http"
 	"os"
@@ -19,7 +20,7 @@ const (
 	TodoDeleteTaskUrl = TodoBaseUrl + "%s/tasks/%s"
 )
 
-type TaskList struct {
+type taskList struct {
 	Value []Task `json:"value"`
 }
 
@@ -33,7 +34,28 @@ type Task struct {
 	Status       string    `json:"status"`
 }
 
-func GetTasks(taskListId string) *[]Task {
+type Finance interface {
+	Authorize(
+		clientId string,
+		clientSecret string,
+		authUrl string,
+		scope string) (*oauth2.Token, error)
+
+	GetTasks(taskListId string) (*[]Task, error)
+}
+
+type FinanceService struct {}
+
+func (f *FinanceService) Authorize(
+	clientId string,
+	clientSecret string,
+	authUrl string,
+	scope string) (*oauth2.Token, error) {
+
+	return nil, nil
+}
+
+func (f *FinanceService) GetTasks(taskListId string) (*[]Task, error) {
 	bearerToken := "Bearer " + os.Getenv(MsTokenVarName)
 
 	tasksUrl := fmt.Sprintf(TodoTasksUrl, taskListId)
@@ -53,7 +75,7 @@ func GetTasks(taskListId string) *[]Task {
 		log.Fatal("The was an error sending the request")
 	}
 
-	var taskList TaskList
+	var taskList taskList
 
 	err = json.NewDecoder(resp.Body).Decode(&taskList)
 	if err != nil {
@@ -69,7 +91,7 @@ func GetTasks(taskListId string) *[]Task {
 		fixTimeZone(&taskList.Value[i])
 	}
 
-	return &taskList.Value
+	return &taskList.Value, nil
 }
 
 func fixTimeZone(task *Task) {
