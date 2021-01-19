@@ -1,17 +1,14 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/oauth2"
 	"log"
 	"net/http"
-	"os"
 	"time"
-)
 
-const (
-	MsTokenVarName = "MS_GRAPH_TOKEN"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 const (
@@ -35,69 +32,96 @@ type Task struct {
 }
 
 type Finance interface {
-	Authorize(
+	GetAuthorizedClient(
 		clientId string,
 		clientSecret string,
 		authUrl string,
-		scope string) (*oauth2.Token, error)
+		scope string,
+	) *http.Client
 
 	GetTasks(taskListId string) (*[]Task, error)
 }
 
-type FinanceService struct {}
+type FinanceService struct {
+	Logger     *log.Logger
+	AuthClient *http.Client
+}
 
-func (f *FinanceService) Authorize(
+func NewFinanceService(logger *log.Logger) *FinanceService {
+	service := FinanceService{
+		Logger: logger,
+	}
+
+	return &service
+}
+
+func (service *FinanceService) GetAuthorizedClient(
 	clientId string,
 	clientSecret string,
 	authUrl string,
-	scope string) (*oauth2.Token, error) {
+	scope string,
+) *http.Client {
+	oauthConfig := clientcredentials.Config{
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
+		TokenURL:     authUrl,
+		Scopes:       []string{scope},
+	}
 
-	return nil, nil
+	client := oauthConfig.Client(context.Background())
+	client.Timeout = 10 * time.Second
+
+	service.AuthClient = client
+
+	return client
 }
 
-func (f *FinanceService) GetTasks(taskListId string) (*[]Task, error) {
-	bearerToken := "Bearer " + os.Getenv(MsTokenVarName)
-
+func (service *FinanceService) GetTasks(taskListId string) (*[]Task, error) {
 	tasksUrl := fmt.Sprintf(TodoTasksUrl, taskListId)
 
-	req, err := http.NewRequest("GET", tasksUrl, nil)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	req.Header.Add("Authorization", bearerToken)
-
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-
-	resp, err := httpClient.Do(req)
+	resp, err := service.AuthClient.Get(tasksUrl)
 	if err != nil || resp.StatusCode > http.StatusMultipleChoices {
-		// TODO: improve this error message
-		log.Fatal("The was an error sending the request")
+		service.Logger.Printf("An error occurred sending the request: %v", err)
+		return nil, err
 	}
 
-	var taskList taskList
+	var tasks taskList
 
-	err = json.NewDecoder(resp.Body).Decode(&taskList)
+	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {
-		log.Fatal(err.Error())
+		service.Logger.Printf(
+			"An error occurred deserializing the JSON: %v",
+			err,
+		)
+		return nil, err
 	}
 
 	err = resp.Body.Close()
 	if err != nil {
-		log.Fatal(err.Error())
+		service.Logger.Printf(
+			"An error occurred closing the request object: %v",
+			err,
+		)
+		return nil, err
 	}
 
-	for i := range taskList.Value {
-		fixTimeZone(&taskList.Value[i])
+	for i := range tasks.Value {
+		fixTimeZone(&tasks.Value[i])
 	}
 
-	return &taskList.Value, nil
+	return &tasks.Value, nil
 }
 
 func fixTimeZone(task *Task) {
-	saoPauloLocation, err := time.LoadLocation("America/Sao_Paulo")
+	locationName := "America/Sao_Paulo"
+
+	saoPauloLocation, err := time.LoadLocation(locationName)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Printf(
+			"An error occurred loading the location %q: %v",
+			locationName,
+			err,
+		)
 	}
 
 	task.CreatedAt = task.CreatedAt.In(saoPauloLocation)
