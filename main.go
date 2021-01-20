@@ -2,13 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
+	"github.com/google/uuid"
+	"golang.org/x/oauth2"
 	"net/http"
-	"time"
-
-	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/confidential"
+	"os"
 )
 
 const (
@@ -22,44 +20,51 @@ const (
 	TaskListId = "AQMkADAwATNiZmYAZC1iNWMwLTQ3NDItMDACLTAwCgAuAAADY6fIEozObEqcJCMBbD9tYAEAPQLxMAsaBkSZbTEhjyRN5QAD5tJRHwAAAA=="
 )
 
+var (
+	oauthStateString          string
+	microsoftOAuthConfig      *oauth2.Config
+	microsoftConsumerEndpoint oauth2.Endpoint
+)
+
+func init() {
+	microsoftConsumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader
+	microsoftConsumerEndpoint.AuthURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
+	microsoftConsumerEndpoint.TokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+
+	microsoftOAuthConfig = &oauth2.Config{
+		RedirectURL:  "http://localhost:8080/authentication",
+		ClientID:     os.Getenv("MS_CLIENT_ID"),
+		ClientSecret: os.Getenv("MS_CLIENT_SECRET"),
+		Scopes:       []string{"offline_access tasks.readwrite"},
+		Endpoint:     microsoftConsumerEndpoint,
+	}
+}
+
 func main() {
-	secret := "**REMOVED**"
-	id := "**REMOVED**"
+	//http.HandleFunc("/", handleMain)
+	http.HandleFunc("/login", handleMicrosoftLogin)
+	http.HandleFunc("/authentication", handleMicrosoftCallback)
 
-	credential, err := confidential.NewCredFromSecret(secret)
-	if err != nil {
-		log.Fatal(err)
-	}
+	http.ListenAndServe(":8080", nil)
 
-	client, err := confidential.New(id, credential)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	scopes := []string{"https://graph.microsoft.com/Tasks.ReadWrite"}
-
-	token, err := client.AcquireTokenByCredential(context.Background(), scopes)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me/todo/lists", nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token.AccessToken))
-
-	httpClient := http.Client{Timeout: 10 * time.Second}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	str, err := json.MarshalIndent(resp.Body, "", "    ")
-
-	log.Println(string(str))
+	//req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me/todo/lists", nil)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token.AccessToken))
+	//
+	//httpClient := http.Client{Timeout: 10 * time.Second}
+	//
+	//resp, err := httpClient.Do(req)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//
+	//str, err := json.MarshalIndent(resp.Body, "", "    ")
+	//
+	//log.Println(string(str))
 
 	//
 	// var taskList = services.GetTasks(TaskListId)
@@ -101,4 +106,46 @@ func main() {
 	// 	fmt.Println("============================")
 	//
 	// 	return
+}
+
+func handleMicrosoftLogin(w http.ResponseWriter, r *http.Request) {
+	oauthStateString = uuid.New().String()
+
+	url := microsoftOAuthConfig.AuthCodeURL(oauthStateString)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+func handleMicrosoftCallback(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	token, err := getAccessToken(query.Get("state"), query.Get("code"))
+	if err != nil {
+		fmt.Println(err.Error())
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
+	fmt.Fprintf(w, "Access token: %s\n", token)
+}
+
+func getAccessToken(state string, code string) (*oauth2.Token, error) {
+	if state != oauthStateString {
+		return nil, fmt.Errorf("invalid oauth state")
+	}
+
+	token, err := microsoftOAuthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
+	}
+
+	return token, nil
+	//response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed getting user info: %s", err.Error())
+	//}
+	//defer response.Body.Close()
+	//contents, err := ioutil.ReadAll(response.Body)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed reading response body: %s", err.Error())
+	//}
+	//return contents, nil
 }
