@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/oauth2"
 	"net/http"
 	"os"
@@ -41,6 +43,14 @@ func init() {
 }
 
 func main() {
+	e := echo.New()
+
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+
+	e.GET("/", healthCheck)
+
+
 	//http.HandleFunc("/", handleMain)
 	http.HandleFunc("/login", handleMicrosoftLogin)
 	http.HandleFunc("/authentication", handleMicrosoftCallback)
@@ -106,6 +116,10 @@ func main() {
 	// 	fmt.Println("============================")
 	//
 	// 	return
+}
+
+func healthCheck(c echo.Context) error {
+	return c.String(http.StatusOK, "")
 }
 
 func handleMicrosoftLogin(w http.ResponseWriter, r *http.Request) {
