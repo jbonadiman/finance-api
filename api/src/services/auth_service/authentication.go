@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/jbonadiman/finance-bot/api/src/services"
+	"github.com/jbonadiman/finance-bot/src/services"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/oauth2"
 	"log"

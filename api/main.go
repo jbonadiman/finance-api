@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/jbonadiman/finance-bot/api/src/services"
-	"github.com/jbonadiman/finance-bot/api/src/services/auth_service"
-	"github.com/jbonadiman/finance-bot/api/src/services/finance_service"
+	"github.com/jbonadiman/finance-bot/src/services"
+	"github.com/jbonadiman/finance-bot/src/services/auth_service"
+	"github.com/jbonadiman/finance-bot/src/services/finance_service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"net/http"

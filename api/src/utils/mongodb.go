@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"github.com/jbonadiman/personal-finance-bot/src/entities"
-	"github.com/jbonadiman/personal-finance-bot/src/repositories"
+	"github.com/jbonadiman/finance-bot/src/entities"
+	"github.com/jbonadiman/finance-bot/src/repositories"
 	"github.com/juju/mgosession"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/mgo.v2"
