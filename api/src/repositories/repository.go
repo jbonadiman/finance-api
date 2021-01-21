@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"github.com/jbonadiman/personal-finance-bot/src/entities"
+	"github.com/jbonadiman/finance-bot/api/src/entities"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"time"
 )

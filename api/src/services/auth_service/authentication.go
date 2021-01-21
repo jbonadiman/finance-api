@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/jbonadiman/finance-bot/src/services"
+	"github.com/jbonadiman/finance-bot/api/src/services"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/oauth2"
 	"log"
@@ -15,12 +15,13 @@ import (
 const (
 	clientIdEnv     = "MS_CLIENT_ID"
 	clientSecretEnv = "MS_CLIENT_SECRET"
-	redirectUrl     = "http://localhost:8080/authentication"
+	authRedirectEnv = "MS_REDIRECT"
 )
 
 var (
 	clientId                  string
 	clientSecret              string
+	authRedirectUrl           string
 	microsoftConsumerEndpoint oauth2.Endpoint
 )
 
@@ -30,7 +31,7 @@ type AuthHandler interface {
 }
 
 type AuthService struct {
-	services *[]services.Authenticated
+	services    *[]services.Authenticated
 	RedirectUrl string
 	Token       *oauth2.Token
 
@@ -48,6 +49,11 @@ func init() {
 	if clientSecret == "" {
 		log.Fatalf("%q environment variable must be set!", clientSecretEnv)
 	}
+
+	authRedirectUrl = os.Getenv(authRedirectEnv)
+	if authRedirectUrl == "" {
+		log.Fatalf("%q environment variable must be set!", authRedirectEnv)
+	}
 }
 
 func New(auth *[]services.Authenticated) *AuthService {
@@ -56,7 +62,7 @@ func New(auth *[]services.Authenticated) *AuthService {
 	microsoftConsumerEndpoint.TokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 
 	config := &oauth2.Config{
-		RedirectURL:  redirectUrl,
+		RedirectURL:  authRedirectUrl,
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"offline_access tasks.readwrite"},
@@ -65,7 +71,7 @@ func New(auth *[]services.Authenticated) *AuthService {
 
 	service := AuthService{
 		services:            auth,
-		RedirectUrl:         redirectUrl,
+		RedirectUrl:         authRedirectUrl,
 		state:               "",
 		microsoftAuthConfig: config,
 	}
