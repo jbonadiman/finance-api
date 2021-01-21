@@ -1,20 +1,24 @@
-package services
+package finance_service
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/errors"
+	"github.com/labstack/echo/v4"
+	"golang.org/x/oauth2"
 	"log"
 	"net/http"
 	"time"
-
-	"golang.org/x/oauth2/clientcredentials"
 )
 
 const (
 	TodoBaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
 	TodoTasksUrl      = TodoBaseUrl + "%s/tasks"
 	TodoDeleteTaskUrl = TodoBaseUrl + "%s/tasks/%s"
+)
+
+const (
+	TaskListId = "AQMkADAwATNiZmYAZC1iNWMwLTQ3NDItMDACLTAwCgAuAAADY6fIEozObEqcJCMBbD9tYAEAPQLxMAsaBkSZbTEhjyRN5QAD5tJRHwAAAA=="
 )
 
 type taskList struct {
@@ -43,73 +47,65 @@ type Finance interface {
 }
 
 type FinanceService struct {
-	Logger     *log.Logger
-	AuthClient *http.Client
+	client *http.Client
+	Token  *oauth2.Token
 }
 
-func NewFinanceService(logger *log.Logger) *FinanceService {
+func New(client *http.Client) *FinanceService {
 	service := FinanceService{
-		Logger: logger,
+		client: client,
 	}
-
 	return &service
 }
 
-func (service *FinanceService) GetAuthorizedClient(
-	clientId string,
-	clientSecret string,
-	authUrl string,
-	scope string,
-) *http.Client {
-	oauthConfig := clientcredentials.Config{
-		ClientID:     clientId,
-		ClientSecret: clientSecret,
-		TokenURL:     authUrl,
-		Scopes:       []string{scope},
-	}
-
-	client := oauthConfig.Client(context.Background())
-	client.Timeout = 10 * time.Second
-
-	service.AuthClient = client
-
-	return client
+func (s *FinanceService) SetToken(token *oauth2.Token) {
+	s.Token = token
 }
 
-func (service *FinanceService) GetTasks(taskListId string) (*[]Task, error) {
-	tasksUrl := fmt.Sprintf(TodoTasksUrl, taskListId)
+func (s *FinanceService) GetTasks(c echo.Context) error {
+	tasksUrl := fmt.Sprintf(TodoTasksUrl, TaskListId)
 
-	resp, err := service.AuthClient.Get(tasksUrl)
+	if s.Token == nil {
+		return errors.New("Not authenticated!")
+	}
+
+	req, err := http.NewRequest("GET", tasksUrl, nil)
+	if err != nil {
+		c.Logger().Printf("An error occurred when creating the request: %q", err)
+		return err
+	}
+
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", s.Token.AccessToken))
+
+	resp, err := s.client.Do(req)
 	if err != nil || resp.StatusCode > http.StatusMultipleChoices {
-		service.Logger.Printf("An error occurred sending the request: %v", err)
-		return nil, err
+		c.Logger().Printf("An error occurred sending the request: %v", err)
+		return err
 	}
 
 	var tasks taskList
 
 	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {
-		service.Logger.Printf(
+		c.Logger().Printf(
 			"An error occurred deserializing the JSON: %v",
 			err,
 		)
-		return nil, err
+		return err
 	}
 
 	err = resp.Body.Close()
 	if err != nil {
-		service.Logger.Printf(
-			"An error occurred closing the request object: %v",
-			err,
-		)
-		return nil, err
+		c.Logger().Printf(
+			"An error occurred closing the request object: %v", err)
+		return err
 	}
 
 	for i := range tasks.Value {
 		fixTimeZone(&tasks.Value[i])
 	}
 
-	return &tasks.Value, nil
+	return c.JSON(http.StatusOK, &tasks.Value)
 }
 
 func fixTimeZone(task *Task) {

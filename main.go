@@ -1,14 +1,15 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"github.com/google/uuid"
+	"github.com/jbonadiman/finance-bot/src/services"
+	"github.com/jbonadiman/finance-bot/src/services/auth_service"
+	"github.com/jbonadiman/finance-bot/src/services/finance_service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/oauth2"
 	"net/http"
 	"os"
+	"time"
 )
 
 const (
@@ -18,9 +19,7 @@ const (
 	grantType    = "MS_GRANT_TYPE"
 )
 
-const (
-	TaskListId = "AQMkADAwATNiZmYAZC1iNWMwLTQ3NDItMDACLTAwCgAuAAADY6fIEozObEqcJCMBbD9tYAEAPQLxMAsaBkSZbTEhjyRN5QAD5tJRHwAAAA=="
-)
+
 
 var (
 	oauthStateString          string
@@ -45,18 +44,21 @@ func init() {
 func main() {
 	e := echo.New()
 
+	client := http.Client{Timeout: 10 * time.Second}
+
+	financeService := finance_service.New(&client)
+	authService := auth_service.New(&[]services.Authenticated{financeService})
+
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
 	e.GET("/", healthCheck)
 
+	e.GET("/login", authService.Login)
+	e.GET("/authentication", authService.LoginRedirect)
+	e.GET("/tasks", financeService.GetTasks)
 
-	//http.HandleFunc("/", handleMain)
-	http.HandleFunc("/login", handleMicrosoftLogin)
-	http.HandleFunc("/authentication", handleMicrosoftCallback)
-
-	http.ListenAndServe(":8080", nil)
-
+	e.Logger.Fatal(e.Start(":8080"))
 
 	//req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me/todo/lists", nil)
 	//if err != nil {
@@ -120,46 +122,4 @@ func main() {
 
 func healthCheck(c echo.Context) error {
 	return c.String(http.StatusOK, "")
-}
-
-func handleMicrosoftLogin(w http.ResponseWriter, r *http.Request) {
-	oauthStateString = uuid.New().String()
-
-	url := microsoftOAuthConfig.AuthCodeURL(oauthStateString)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-}
-
-func handleMicrosoftCallback(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	token, err := getAccessToken(query.Get("state"), query.Get("code"))
-	if err != nil {
-		fmt.Println(err.Error())
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return
-	}
-
-	fmt.Fprintf(w, "Access token: %s\n", token)
-}
-
-func getAccessToken(state string, code string) (*oauth2.Token, error) {
-	if state != oauthStateString {
-		return nil, fmt.Errorf("invalid oauth state")
-	}
-
-	token, err := microsoftOAuthConfig.Exchange(context.Background(), code)
-	if err != nil {
-		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
-	}
-
-	return token, nil
-	//response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed getting user info: %s", err.Error())
-	//}
-	//defer response.Body.Close()
-	//contents, err := ioutil.ReadAll(response.Body)
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed reading response body: %s", err.Error())
-	//}
-	//return contents, nil
 }

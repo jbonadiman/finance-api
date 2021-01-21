@@ -1,8 +1,11 @@
-package services
+package auth_service
 
 import (
+	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/jbonadiman/finance-bot/src/services"
+	"github.com/labstack/echo/v4"
 	"golang.org/x/oauth2"
 	"log"
 	"net/http"
@@ -22,13 +25,16 @@ var (
 )
 
 type AuthHandler interface {
-	Login(http.ResponseWriter, *http.Request)
-	LoginRedirect(http.ResponseWriter, *http.Request)
+	Login(echo.Context) error
+	LoginRedirect(echo.Context) error
 }
 
 type AuthService struct {
-	RedirectUrl         string
-	authState           string
+	services *[]services.Authenticated
+	RedirectUrl string
+	Token       *oauth2.Token
+
+	state               string
 	microsoftAuthConfig *oauth2.Config
 }
 
@@ -44,7 +50,7 @@ func init() {
 	}
 }
 
-func New() *AuthService {
+func New(auth *[]services.Authenticated) *AuthService {
 	microsoftConsumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader
 	microsoftConsumerEndpoint.AuthURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
 	microsoftConsumerEndpoint.TokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
@@ -58,52 +64,45 @@ func New() *AuthService {
 	}
 
 	service := AuthService{
+		services:            auth,
 		RedirectUrl:         redirectUrl,
-		authState:           "",
+		state:               "",
 		microsoftAuthConfig: config,
 	}
 
 	return &service
 }
 
-func (auth *AuthService) Login(w http.ResponseWriter, r *http.Request) {
-	oauthStateString = uuid.New().String()
+func (auth *AuthService) Login(c echo.Context) error {
+	auth.state = uuid.New().String()
 
-	url := microsoftOAuthConfig.AuthCodeURL(oauthStateString)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	url := auth.microsoftAuthConfig.AuthCodeURL(auth.state)
+	return c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
-func (auth *AuthService) LoginRedirect(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	token, err := getAccessToken(query.Get("state"), query.Get("code"))
+func (auth *AuthService) LoginRedirect(c echo.Context) error {
+	token, err := auth.getAccessToken(c.QueryParam("state"), c.QueryParam("code"))
 	if err != nil {
-		fmt.Println(err.Error())
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return
+		c.Logger().Error(err.Error())
+		return c.Redirect(http.StatusTemporaryRedirect, "/")
 	}
 
-	fmt.Fprintf(w, "Access token: %s\n", token)
+	for i := 0; i < len(*auth.services); i++ {
+		(*auth.services)[i].SetToken(token)
+	}
+
+	return c.String(http.StatusOK, "Logged in successfully!")
 }
 
-func getAccessToken(state string, code string) (*oauth2.Token, error) {
-	if state != oauthStateString {
+func (auth *AuthService) getAccessToken(state string, code string) (*oauth2.Token, error) {
+	if state != auth.state {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
 
-	token, err := microsoftOAuthConfig.Exchange(context.Background(), code)
+	token, err := auth.microsoftAuthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}
 
 	return token, nil
-	//response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed getting user info: %s", err.Error())
-	//}
-	//defer response.Body.Close()
-	//contents, err := ioutil.ReadAll(response.Body)
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed reading response body: %s", err.Error())
-	//}
-	//return contents, nil
 }
