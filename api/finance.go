@@ -44,7 +44,7 @@ func init() {
 	var err error
 	taskListId, err = utils.LoadVar("TASK_LIST_ID")
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
 	}
 }
 

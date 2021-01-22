@@ -18,17 +18,17 @@ func init() {
 
 	lambdaHost, err = utils.LoadVar("LAMBDA_HOST")
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
 	}
 
 	lambdaPassword, err = utils.LoadVar("LAMBDA_SECRET")
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
 	}
 
 	lambdaPort, err = utils.LoadVar("LAMBDA_PORT")
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
 	}
 }
 
