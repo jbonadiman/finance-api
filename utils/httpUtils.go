@@ -23,7 +23,7 @@ func SendErrorWithCode(w *http.ResponseWriter, err error, httpCode int) {
 
 func LoadVarSendingResponse(w *http.ResponseWriter, key string) string {
 	envVar, err := LoadVar(key)
-	if err == nil {
+	if err != nil {
 		log.Printf("%q environment variable must be set!\n", key)
 
 		(*w).WriteHeader(http.StatusBadRequest)
