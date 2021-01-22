@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/jbonadiman/finance-bot/databases"
 	"github.com/jbonadiman/finance-bot/utils"
-	"io"
 	"log"
 	"net/http"
 	"time"
@@ -63,26 +62,26 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 
 	req, err := http.NewRequest("GET", tasksUrl, nil)
 	if err != nil {
-		utils.SendError(&w, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token))
 
 	resp, err := httpClient.Do(req)
-	if err != nil || resp.StatusCode > http.StatusMultipleChoices {
-		utils.SendError(&w, err)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	var tasks taskList
 
 	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {
-		utils.SendError(&w, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	err = resp.Body.Close()
 	if err != nil {
-		utils.SendError(&w, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	for i := range tasks.Value {
@@ -91,10 +90,10 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 
 	content, err := json.Marshal(tasks.Value)
 	if err != nil {
-		utils.SendError(&w, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	io.WriteString(w, string(content))
+	w.Write(content)
 }
 
 func fixTimeZone(task *Task) {

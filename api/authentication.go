@@ -6,7 +6,6 @@ import (
 	"github.com/jbonadiman/finance-bot/databases"
 	"github.com/jbonadiman/finance-bot/utils"
 	"golang.org/x/oauth2"
-	"io"
 	"net/http"
 	"time"
 )
@@ -44,7 +43,7 @@ func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 		context.Background(),
 		query.Get("code"))
 	if err != nil {
-		utils.SendError(&w, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	cacheClient.Set(
@@ -53,5 +52,5 @@ func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 		token.AccessToken,
 		token.Expiry.Sub(time.Now()))
 
-	io.WriteString(w, "Authentication was successful!")
+	w.Write([]byte("Authentication was successful!"))
 }
