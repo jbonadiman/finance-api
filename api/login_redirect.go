@@ -4,39 +4,8 @@ import (
 	"context"
 	"fmt"
 	"golang.org/x/oauth2"
-	"log"
 	"net/http"
-	"os"
 )
-
-func init() {
-	clientId = os.Getenv(clientIdEnv)
-	if clientId == "" {
-		log.Fatalf("%q environment variable must be set!", clientIdEnv)
-	}
-
-	clientSecret = os.Getenv(clientSecretEnv)
-	if clientSecret == "" {
-		log.Fatalf("%q environment variable must be set!", clientSecretEnv)
-	}
-
-	authRedirectUrl = os.Getenv(authRedirectEnv)
-	if authRedirectUrl == "" {
-		log.Fatalf("%q environment variable must be set!", authRedirectEnv)
-	}
-
-	microsoftConsumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader
-	microsoftConsumerEndpoint.AuthURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
-	microsoftConsumerEndpoint.TokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
-
-	msConfig = &oauth2.Config{
-		RedirectURL:  authRedirectUrl,
-		ClientID:     clientId,
-		ClientSecret: clientSecret,
-		Scopes:       []string{"offline_access tasks.readwrite"},
-		Endpoint:     microsoftConsumerEndpoint,
-	}
-}
 
 func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
