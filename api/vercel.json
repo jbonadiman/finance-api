@@ -2,7 +2,7 @@
   "public": false,
   "cleanUrls": true,
   "functions": {
-    "api/*.go": {
+    "*.go": {
       "memory": 1024,
       "maxDuration": 10
     }
