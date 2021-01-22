@@ -8,50 +8,36 @@ import (
 	"os"
 )
 
-const (
-	clientIdEnv     = "MS_CLIENT_ID"
-	clientSecretEnv = "MS_CLIENT_SECRET"
-	authRedirectEnv = "MS_REDIRECT"
-)
+func Login(w http.ResponseWriter, r *http.Request) {
+	microsoftConsumerEndpoint := oauth2.Endpoint{}
 
-var (
-	clientId                  string
-	clientSecret              string
-	authRedirectUrl           string
-	microsoftConsumerEndpoint oauth2.Endpoint
-	msConfig                  *oauth2.Config
-)
-
-func init() {
-	clientId = os.Getenv(clientIdEnv)
+	clientId := os.Getenv("MS_CLIENT_ID")
 	if clientId == "" {
-		log.Fatalf("%q environment variable must be set!", clientIdEnv)
+		log.Fatalf("%q environment variable must be set!", "MS_CLIENT_ID")
 	}
 
-	clientSecret = os.Getenv(clientSecretEnv)
+	clientSecret := os.Getenv("MS_CLIENT_SECRET")
 	if clientSecret == "" {
-		log.Fatalf("%q environment variable must be set!", clientSecretEnv)
+		log.Fatalf("%q environment variable must be set!", "MS_CLIENT_SECRET")
 	}
 
-	authRedirectUrl = os.Getenv(authRedirectEnv)
+	authRedirectUrl := os.Getenv("MS_REDIRECT")
 	if authRedirectUrl == "" {
-		log.Fatalf("%q environment variable must be set!", authRedirectEnv)
+		log.Fatalf("%q environment variable must be set!", "MS_REDIRECT")
 	}
 
 	microsoftConsumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader
 	microsoftConsumerEndpoint.AuthURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
 	microsoftConsumerEndpoint.TokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 
-	msConfig = &oauth2.Config{
+	msConfig := &oauth2.Config{
 		RedirectURL:  authRedirectUrl,
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"offline_access tasks.readwrite"},
 		Endpoint:     microsoftConsumerEndpoint,
 	}
-}
 
-func Login(w http.ResponseWriter, r *http.Request) {
 	url := msConfig.AuthCodeURL(uuid.New().String())
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
