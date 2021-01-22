@@ -2,21 +2,12 @@ package handler
 
 import (
 	"context"
-	"github.com/go-redis/redis/v8"
-	"github.com/jbonadiman/finance-bot/databases"
+	"github.com/jbonadiman/finance-bot/databases/redis"
 	"github.com/jbonadiman/finance-bot/utils"
 	"golang.org/x/oauth2"
 	"net/http"
 	"time"
 )
-
-var (
-	cacheClient *redis.Client
-)
-
-func init() {
-	cacheClient = databases.GetClient()
-}
 
 func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 	microsoftConsumerEndpoint := oauth2.Endpoint{}
@@ -37,6 +28,11 @@ func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 		Endpoint:     microsoftConsumerEndpoint,
 	}
 
+	redisClient, err := redis.New().GetClient()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
 	query := r.URL.Query()
 
 	token, err := msConfig.Exchange(
@@ -46,7 +42,7 @@ func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	cacheClient.Set(
+	redisClient.Set(
 		context.Background(),
 		"token",
 		token.AccessToken,

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jbonadiman/finance-bot/databases"
+	"github.com/jbonadiman/finance-bot/databases/redis"
 	"github.com/jbonadiman/finance-bot/utils"
 	"log"
 	"net/http"
@@ -15,11 +15,6 @@ const (
 	TodoBaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
 	TodoTasksUrl      = TodoBaseUrl + "%s/tasks"
 	TodoDeleteTaskUrl = TodoBaseUrl + "%s/tasks/%s"
-)
-
-var (
-	taskListId string
-	httpClient *http.Client
 )
 
 type taskList struct {
@@ -36,21 +31,22 @@ type Task struct {
 	Status       string    `json:"status"`
 }
 
-func init() {
-	httpClient = http.DefaultClient
-	cacheClient = databases.GetClient()
-
-	var err error
-	taskListId, err = utils.LoadVar("TASK_LIST_ID")
-	if err != nil {
-		log.Println(err.Error())
-	}
-}
-
 func GetTasks(w http.ResponseWriter, r *http.Request) {
+	taskListId, err := utils.LoadVar("TASK_LIST_ID")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	ctx := context.Background()
 
-	token := cacheClient.Get(ctx, "token").Val()
+	redisClient, err := redis.New().GetClient()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	token := redisClient.Get(ctx, "token").Val()
 	if token == "" {
 		log.Println("User not authenticated, redirecting to the login page")
 
@@ -63,13 +59,15 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 	req, err := http.NewRequest("GET", tasksUrl, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token))
 
-	resp, err := httpClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	var tasks taskList
@@ -77,11 +75,13 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	err = resp.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	for i := range tasks.Value {
@@ -91,6 +91,7 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 	content, err := json.Marshal(tasks.Value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	w.Write(content)
