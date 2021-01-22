@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/jbonadiman/finance-bot/databases"
+	"github.com/jbonadiman/finance-bot/utils"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -16,24 +18,10 @@ const (
 	TodoDeleteTaskUrl = TodoBaseUrl + "%s/tasks/%s"
 )
 
-const (
-	taskListEnv = "TASK_LIST_ID"
-)
-
 var (
 	taskListId string
-	client *http.Client
+	httpClient *http.Client
 )
-
-func init() {
-	taskListId = os.Getenv(taskListEnv)
-
-	if taskListId == "" {
-		panic("Task List ID must be supplied!")
-	}
-
-	client = http.DefaultClient
-}
 
 type taskList struct {
 	Value []Task `json:"value"`
@@ -49,53 +37,52 @@ type Task struct {
 	Status       string    `json:"status"`
 }
 
+func init() {
+	httpClient = http.DefaultClient
+	cacheClient = databases.GetClient()
+
+	var err error
+	taskListId, err = utils.LoadVar("TASK_LIST_ID")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+}
+
 func GetTasks(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	token := query.Get("token")
+	ctx := context.Background()
 
+	token := cacheClient.Get(ctx, "token").Val()
 	if token == "" {
-		log.Println("Bearer token must be supplied!")
+		log.Println("User not authenticated, redirecting to the login page")
 
-		w.WriteHeader(http.StatusUnauthorized)
-		io.WriteString(w, "Bearer token must be supplied!")
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
 	}
 
 	tasksUrl := fmt.Sprintf(TodoTasksUrl, taskListId)
 
 	req, err := http.NewRequest("GET", tasksUrl, nil)
 	if err != nil {
-		log.Printf("An error occurred when creating the request: %v", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("An error occurred when creating the request: %v", err))
+		utils.SendError(&w, err)
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token))
 
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil || resp.StatusCode > http.StatusMultipleChoices {
-		log.Printf("An error occurred sending the request: %v", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("An error occurred sending the request: %v", err))
+		utils.SendError(&w, err)
 	}
 
 	var tasks taskList
 
 	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {
-		log.Printf("An error occurred deserializing the JSON: %v", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("An error occurred deserializing the JSON: %v", err))
+		utils.SendError(&w, err)
 	}
 
 	err = resp.Body.Close()
 	if err != nil {
-		log.Printf("An error occurred closing the request object: %v", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("An error occurred closing the request object: %v", err))
+		utils.SendError(&w, err)
 	}
 
 	for i := range tasks.Value {
@@ -104,10 +91,7 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 
 	content, err := json.Marshal(tasks.Value)
 	if err != nil {
-		log.Printf("An error occurred marshalling the json: %v", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("An error occurred marshalling the json: %v", err))
+		utils.SendError(&w, err)
 	}
 
 	io.WriteString(w, string(content))

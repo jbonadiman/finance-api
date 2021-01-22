@@ -2,11 +2,22 @@ package handler
 
 import (
 	"context"
+	"github.com/go-redis/redis/v8"
+	"github.com/jbonadiman/finance-bot/databases"
 	"github.com/jbonadiman/finance-bot/utils"
 	"golang.org/x/oauth2"
 	"io"
 	"net/http"
+	"time"
 )
+
+var (
+	cacheClient *redis.Client
+)
+
+func init() {
+	cacheClient = databases.GetClient()
+}
 
 func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 	microsoftConsumerEndpoint := oauth2.Endpoint{}
@@ -36,5 +47,11 @@ func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 		utils.SendError(&w, err)
 	}
 
-	io.WriteString(w, token.AccessToken)
+	cacheClient.Set(
+		context.Background(),
+		"token",
+		token.AccessToken,
+		token.Expiry.Sub(time.Now()))
+
+	io.WriteString(w, "Authentication was successful!")
 }
