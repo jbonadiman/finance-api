@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -13,17 +15,26 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	clientId := os.Getenv("MS_CLIENT_ID")
 	if clientId == "" {
-		log.Fatalf("%q environment variable must be set!", "MS_CLIENT_ID")
+		log.Printf("%q environment variable must be set!", "MS_CLIENT_ID")
+
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, fmt.Sprintf("%q environment variable must be set!", "MS_CLIENT_ID"))
 	}
 
 	clientSecret := os.Getenv("MS_CLIENT_SECRET")
 	if clientSecret == "" {
-		log.Fatalf("%q environment variable must be set!", "MS_CLIENT_SECRET")
+		log.Printf("%q environment variable must be set!", "MS_CLIENT_SECRET")
+
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, fmt.Sprintf("%q environment variable must be set!", "MS_CLIENT_SECRET"))
 	}
 
 	authRedirectUrl := os.Getenv("MS_REDIRECT")
 	if authRedirectUrl == "" {
-		log.Fatalf("%q environment variable must be set!", "MS_REDIRECT")
+		log.Printf("%q environment variable must be set!", "MS_REDIRECT")
+
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, fmt.Sprintf("%q environment variable must be set!", "MS_REDIRECT"))
 	}
 
 	microsoftConsumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader

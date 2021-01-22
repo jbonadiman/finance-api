@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"golang.org/x/oauth2"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,17 +15,26 @@ func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 
 	clientId := os.Getenv("MS_CLIENT_ID")
 	if clientId == "" {
-		log.Fatalf("%q environment variable must be set!", "MS_CLIENT_ID")
+		log.Printf("%q environment variable must be set!", "MS_CLIENT_ID")
+
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, fmt.Sprintf("%q environment variable must be set!", "MS_CLIENT_ID"))
 	}
 
 	clientSecret := os.Getenv("MS_CLIENT_SECRET")
 	if clientSecret == "" {
-		log.Fatalf("%q environment variable must be set!", "MS_CLIENT_SECRET")
+		log.Printf("%q environment variable must be set!", "MS_CLIENT_SECRET")
+
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, fmt.Sprintf("%q environment variable must be set!", "MS_CLIENT_SECRET"))
 	}
 
 	authRedirectUrl := os.Getenv("MS_REDIRECT")
 	if authRedirectUrl == "" {
-		log.Fatalf("%q environment variable must be set!", "MS_REDIRECT")
+		log.Printf("%q environment variable must be set!", "MS_REDIRECT")
+
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, fmt.Sprintf("%q environment variable must be set!", "MS_REDIRECT"))
 	}
 
 	microsoftConsumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader
@@ -43,11 +53,13 @@ func LoginRedirect(w http.ResponseWriter, r *http.Request) {
 
 	token, err := getAccessToken(query.Get("code"), msConfig)
 	if err != nil {
-		fmt.Println(err.Error())
-		http.Redirect(w, r, "/", http.StatusInternalServerError)
+		log.Printf("An error ocurred: %v", err.Error())
+
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, fmt.Sprintf("%q environment variable must be set!", "MS_REDIRECT"))
 	}
 
-	_, _ = fmt.Fprintf(w, token.AccessToken)
+	io.WriteString(w, token.AccessToken)
 }
 
 func getAccessToken(code string, config *oauth2.Config) (*oauth2.Token, error) {

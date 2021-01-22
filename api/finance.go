@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -53,37 +54,48 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 	token := query.Get("token")
 
 	if token == "" {
-		fmt.Fprintf(w, "Bearer token must be supplied!")
+		log.Println("Bearer token must be supplied!")
+
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, "Bearer token must be supplied!")
 	}
 
 	tasksUrl := fmt.Sprintf(TodoTasksUrl, taskListId)
 
 	req, err := http.NewRequest("GET", tasksUrl, nil)
 	if err != nil {
-		fmt.Fprintf(w, "An error occurred when creating the request: %q", err)
+		log.Printf("An error occurred when creating the request: %v", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("An error occurred when creating the request: %v", err))
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token))
 
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode > http.StatusMultipleChoices {
-		fmt.Fprintf(w,"An error occurred sending the request: %v", err)
+		log.Printf("An error occurred sending the request: %v", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("An error occurred sending the request: %v", err))
 	}
 
 	var tasks taskList
 
 	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {
-		fmt.Fprintf(w,
-			"An error occurred deserializing the JSON: %v",
-			err,
-		)
+		log.Printf("An error occurred deserializing the JSON: %v", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("An error occurred deserializing the JSON: %v", err))
 	}
 
 	err = resp.Body.Close()
 	if err != nil {
-		fmt.Fprintf(w,
-			"An error occurred closing the request object: %v", err)
+		log.Printf("An error occurred closing the request object: %v", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("An error occurred closing the request object: %v", err))
 	}
 
 	for i := range tasks.Value {
@@ -92,11 +104,13 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 
 	content, err := json.Marshal(tasks.Value)
 	if err != nil {
-		fmt.Fprintf(w,
-			"An error occurred marshaling the json: %v", err)
+		log.Printf("An error occurred marshalling the json: %v", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("An error occurred marshalling the json: %v", err))
 	}
 
-	fmt.Fprintf(w, string(content))
+	io.WriteString(w, string(content))
 }
 
 func fixTimeZone(task *Task) {
