@@ -3,26 +3,10 @@ package functions
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"log"
 	"net/http"
 	"os"
-)
-
-const (
-	clientIdEnv     = "MS_CLIENT_ID"
-	clientSecretEnv = "MS_CLIENT_SECRET"
-	authRedirectEnv = "MS_REDIRECT"
-)
-
-var (
-	clientId                  string
-	clientSecret              string
-	authRedirectUrl           string
-	microsoftConsumerEndpoint oauth2.Endpoint
-	statesList                []string
-	msConfig                  *oauth2.Config
 )
 
 func init() {
@@ -52,14 +36,6 @@ func init() {
 		Scopes:       []string{"offline_access tasks.readwrite"},
 		Endpoint:     microsoftConsumerEndpoint,
 	}
-}
-
-func Login(w http.ResponseWriter, r *http.Request) {
-	newState := uuid.New().String()
-
-	statesList = append(statesList, newState)
-	url := msConfig.AuthCodeURL(newState)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
 func LoginRedirect(w http.ResponseWriter, r *http.Request) {
