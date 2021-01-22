@@ -1,4 +1,10 @@
 {
   "public": false,
-  "cleanUrls": true
+  "cleanUrls": true,
+  "functions": {
+    "api/*.go": {
+      "memory": 128,
+      "maxDuration": 10
+    }
+  }
 }
