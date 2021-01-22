@@ -19,7 +19,6 @@ var (
 	clientSecret              string
 	authRedirectUrl           string
 	microsoftConsumerEndpoint oauth2.Endpoint
-	statesList                []string
 	msConfig                  *oauth2.Config
 )
 
@@ -53,9 +52,6 @@ func init() {
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	newState := uuid.New().String()
-
-	statesList = append(statesList, newState)
-	url := msConfig.AuthCodeURL(newState)
+	url := msConfig.AuthCodeURL(uuid.New().String())
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
