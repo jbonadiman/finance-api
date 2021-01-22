@@ -16,7 +16,7 @@ const (
 )
 
 const (
-	taskListEnv = "AQMkADAwATNiZmYAZC1iNWMwLTQ3NDItMDACLTAwCgAuAAADY6fIEozObEqcJCMBbD9tYAEAPQLxMAsaBkSZbTEhjyRN5QAD5tJRHwAAAA=="
+	taskListEnv = "TASK_LIST_ID"
 )
 
 var (
