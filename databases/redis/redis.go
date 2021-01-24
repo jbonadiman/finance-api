@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/jbonadiman/finance-bot/databases"
@@ -9,6 +10,31 @@ import (
 )
 
 type DB databases.Database
+
+var (
+	LambdaHost     string
+	LambdaPassword string
+	LambdaPort     string
+)
+
+func init() {
+	var err error
+
+	LambdaHost, err = utils.LoadVar("LAMBDA_HOST")
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	LambdaPassword, err = utils.LoadVar("LAMBDA_SECRET")
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	LambdaPort, err = utils.LoadVar("LAMBDA_PORT")
+	if err != nil {
+		log.Println(err.Error())
+	}
+}
 
 func (db *DB) GetClient() (*redis.Client, error) {
 	connectionStr := db.GetConnectionString()
@@ -30,28 +56,17 @@ func (db *DB) GetConnectionString() string {
 		db.Port)
 }
 
-func New() *DB {
-	lambdaHost, err := utils.LoadVar("LAMBDA_HOST")
-	if err != nil {
-		log.Println(err.Error())
-	}
-
-	lambdaPassword, err := utils.LoadVar("LAMBDA_SECRET")
-	if err != nil {
-		log.Println(err.Error())
-	}
-
-	lambdaPort, err := utils.LoadVar("LAMBDA_PORT")
-	if err != nil {
-		log.Println(err.Error())
+func New() (*DB, error) {
+	if LambdaHost == "" || LambdaPassword == "" || LambdaPort == "" {
+		return nil, errors.New("lambda store credentials environment variables must be set")
 	}
 
 	db := DB{
-		Host:     lambdaHost,
-		Password: lambdaPassword,
+		Host:     LambdaHost,
+		Password: LambdaPassword,
 		User:     "",
-		Port:     lambdaPort,
+		Port:     LambdaPort,
 	}
 
-	return &db
+	return &db, nil
 }
