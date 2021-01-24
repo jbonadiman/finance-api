@@ -1,6 +1,6 @@
-package databases
+package utils
 
-type Database struct {
+type Connection struct {
 	Host string
 	Password string
 	User string

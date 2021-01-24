@@ -5,12 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/jbonadiman/finance-bot/databases"
 	"github.com/jbonadiman/finance-bot/utils"
 	"log"
 )
 
-type DB databases.Database
+type DB utils.Connection
 
 var (
 	LambdaHost     string

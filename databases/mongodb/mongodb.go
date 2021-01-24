@@ -2,14 +2,13 @@ package mongodb
 
 import (
 	"fmt"
-	"github.com/jbonadiman/finance-bot/databases"
 	"github.com/jbonadiman/finance-bot/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 )
 
-type DB databases.Database
+type DB utils.Connection
 
 func (db *DB) GetClient() (*mongo.Client, error) {
 	connectionStr := db.GetConnectionString()
