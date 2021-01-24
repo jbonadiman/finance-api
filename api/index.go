@@ -14,7 +14,6 @@ var (
 	MSClientSecret string
 	MSRedirectUrl  string
 
-	MSConsumerEndpoint oauth2.Endpoint
 	MSConfig *oauth2.Config
 )
 
@@ -36,18 +35,18 @@ func init() {
 		log.Println(err.Error())
 	}
 
-	MSConsumerEndpoint := oauth2.Endpoint{}
+	consumerEndpoint := oauth2.Endpoint{}
 
-	MSConsumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader
-	MSConsumerEndpoint.AuthURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
-	MSConsumerEndpoint.TokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+	consumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader
+	consumerEndpoint.AuthURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
+	consumerEndpoint.TokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 
 	MSConfig = &oauth2.Config{
 		RedirectURL:  MSRedirectUrl,
 		ClientID:     MSClientID,
 		ClientSecret: MSClientSecret,
 		Scopes:       []string{"offline_access", "tasks.readwrite"},
-		Endpoint:     MSConsumerEndpoint,
+		Endpoint:     consumerEndpoint,
 	}
 }
 
@@ -65,7 +64,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 
 	if cachedToken != "" {
 		log.Println("retrieved token from cache...")
-		url = "/get-tasks"
+		url = "/api/get-tasks"
 	} else {
 		log.Println("getting url of authorize endpoint...")
 		url = MSConfig.AuthCodeURL(uuid.New().String())

@@ -7,7 +7,6 @@ import (
 	"github.com/jbonadiman/finance-bot/databases/redis"
 	"github.com/jbonadiman/finance-bot/models"
 	"github.com/jbonadiman/finance-bot/utils"
-	"golang.org/x/oauth2"
 	"log"
 	"net/http"
 	"time"
@@ -15,17 +14,12 @@ import (
 
 const (
 	TodoBaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
-	TodoTasksUrl      = TodoBaseUrl + "%v/task"
+	TodoTasksUrl      = TodoBaseUrl + "%v/tasks"
 	TodoDeleteTaskUrl = TodoBaseUrl + "%v/tasks/%v"
 )
 
 var (
 	TaskListID string
-	//MSClientID     string
-	//MSClientSecret string
-	//MSRedirectUrl  string
-	//
-	//MSConsumerEndpoint oauth2.Endpoint
 )
 
 type taskList struct {
@@ -39,27 +33,6 @@ func init() {
 	if err != nil {
 		log.Println(err.Error())
 	}
-	//
-	//	MSClientID, err = utils.LoadVar("MS_CLIENT_ID")
-	//	if err != nil {
-	//		log.Println(err.Error())
-	//	}
-	//
-	//	MSClientSecret, err = utils.LoadVar("MS_CLIENT_SECRET")
-	//	if err != nil {
-	//		log.Println(err.Error())
-	//	}
-	//
-	//	MSRedirectUrl, err = utils.LoadVar("MS_REDIRECT")
-	//	if err != nil {
-	//		log.Println(err.Error())
-	//	}
-	//
-	//	MSConsumerEndpoint := oauth2.Endpoint{}
-	//
-	//	MSConsumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader
-	//	MSConsumerEndpoint.AuthURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
-	//	MSConsumerEndpoint.TokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 }
 
 func FetchTasks(w http.ResponseWriter, r *http.Request) {
@@ -97,26 +70,19 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 func getCredentials(authorizationCode string) (string, error) {
 	ctx := context.Background()
 
-	msConfig := &oauth2.Config{
-		RedirectURL:  MSRedirectUrl,
-		ClientID:     MSClientID,
-		ClientSecret: MSClientSecret,
-		Scopes:       []string{"offline_access tasks.readwrite"},
-		Endpoint:     MSConsumerEndpoint,
-	}
-	token, err := msConfig.Exchange(ctx, authorizationCode)
+	token, err := MSConfig.Exchange(ctx, authorizationCode)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	db, err := redis.New()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	redisClient, err := db.GetClient()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	redisClient.Set(
