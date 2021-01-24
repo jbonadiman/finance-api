@@ -42,12 +42,16 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if token == "" {
+		log.Println("checking for microsoft credentials in environment variables...")
 		if MSClientID == "" || MSClientSecret == "" || MSRedirectUrl == "" {
+			log.Println("microsoft credentials not found!")
 			http.Error(w, "microsoft credentials environment variables must be set", http.StatusBadRequest)
 		}
 
+		log.Println("getting authorize code from url query...")
 		queryCode := r.URL.Query().Get("code")
 		if queryCode == "" {
+			log.Println("could not find authorize code in url...")
 			http.Error(w, "authorization code was not provided", http.StatusInternalServerError)
 		}
 
@@ -70,6 +74,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 func getCredentials(authorizationCode string) (string, error) {
 	ctx := context.Background()
 
+	log.Println("retrieving token using authorize code...")
 	token, err := MSConfig.Exchange(ctx, authorizationCode)
 	if err != nil {
 		return "", err
@@ -85,6 +90,7 @@ func getCredentials(authorizationCode string) (string, error) {
 		return "", err
 	}
 
+	log.Println("storing token in cache...")
 	redisClient.Set(
 		context.Background(),
 		"token",
@@ -104,10 +110,13 @@ func getTasks(token string) (*[]models.Task, error) {
 
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token))
 
+	log.Println("listing tasks...")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
+
+	defer resp.Body.Close()
 
 	var tasks taskList
 
@@ -116,11 +125,9 @@ func getTasks(token string) (*[]models.Task, error) {
 		return nil, err
 	}
 
-	err = resp.Body.Close()
-	if err != nil {
-		return nil, err
-	}
+	log.Printf("found %v tasks!", len(tasks.Value))
 
+	log.Println("fixing tasks' timezone")
 	for i := range tasks.Value {
 		fixTimeZone(&tasks.Value[i])
 	}
@@ -129,6 +136,7 @@ func getTasks(token string) (*[]models.Task, error) {
 }
 
 func fixTimeZone(task *models.Task) {
+	log.Println("fixing tasks timezone...")
 	locationName := "America/Sao_Paulo"
 
 	saoPauloLocation, err := time.LoadLocation(locationName)

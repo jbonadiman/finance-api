@@ -51,8 +51,10 @@ func init() {
 }
 
 func Index(w http.ResponseWriter, r *http.Request) {
+	log.Println("checking for microsoft credentials in environment variables...")
 	if MSClientID == "" || MSClientSecret == "" || MSRedirectUrl == "" {
-		http.Error(w, "Microsoft credentials environment variables must be set", http.StatusBadRequest)
+		log.Println("microsoft credentials not found!")
+		http.Error(w, "microsoft credentials environment variables must be set", http.StatusBadRequest)
 	}
 
 	cachedToken, err := redis.GetTokenFromCache()
@@ -63,7 +65,6 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	var url string
 
 	if cachedToken != "" {
-		log.Println("retrieved token from cache...")
 		url = "/api/get-tasks"
 	} else {
 		log.Println("getting url of authorize endpoint...")

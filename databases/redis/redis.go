@@ -73,6 +73,7 @@ func New() (*DB, error) {
 }
 
 func GetTokenFromCache() (string, error) {
+	log.Println("attempting to retrieve token from cache...")
 	db, err := New()
 	if err != nil {
 		return "", err
@@ -86,8 +87,10 @@ func GetTokenFromCache() (string, error) {
 	token := redisClient.Get(context.Background(), "token").Val()
 
 	if token == "" {
+		log.Println("token was not found on cache")
 		return "", nil
 	}
 
+	log.Println("retrieved token from cache successfully")
 	return token, nil
 }
