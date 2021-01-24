@@ -63,7 +63,7 @@ func init() {
 }
 
 func FetchTasks(w http.ResponseWriter, r *http.Request) {
-	token, err := utils.GetTokenFromCache()
+	token, err := redis.GetTokenFromCache()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

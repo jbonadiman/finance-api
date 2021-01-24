@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
@@ -69,4 +70,24 @@ func New() (*DB, error) {
 	}
 
 	return &db, nil
+}
+
+func GetTokenFromCache() (string, error) {
+	db, err := New()
+	if err != nil {
+		return "", err
+	}
+
+	redisClient, err := db.GetClient()
+	if err != nil {
+		return "", err
+	}
+
+	token := redisClient.Get(context.Background(), "token").Val()
+
+	if token == "" {
+		return "", nil
+	}
+
+	return token, nil
 }

@@ -2,10 +2,6 @@ package models
 
 import "time"
 
-type TaskList struct {
-	Value []Task `json:"value"`
-}
-
 type Task struct {
 	Id           string    `json:"id"`
 	Title        string    `json:"title"`

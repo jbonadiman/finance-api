@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/google/uuid"
+	"github.com/jbonadiman/finance-bot/databases/redis"
 	"github.com/jbonadiman/finance-bot/utils"
 	"golang.org/x/oauth2"
 	"log"
@@ -46,7 +47,7 @@ func Main(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Microsoft credentials environment variables must be set", http.StatusBadRequest)
 	}
 
-	cachedToken, err := utils.GetTokenFromCache()
+	cachedToken, err := redis.GetTokenFromCache()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
