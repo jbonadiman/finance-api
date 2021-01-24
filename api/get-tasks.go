@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jbonadiman/finance-bot/databases/redis"
-	"github.com/jbonadiman/finance-bot/models"
-	"github.com/jbonadiman/finance-bot/utils"
 	"log"
 	"net/http"
 	"time"
+
+	rabbit2 "github.com/jbonadiman/finance-bot/brokers/rabbit"
+	"github.com/jbonadiman/finance-bot/databases/redis"
+	"github.com/jbonadiman/finance-bot/models"
+	"github.com/jbonadiman/finance-bot/utils"
 )
 
 const (
@@ -20,6 +22,7 @@ const (
 
 var (
 	TaskListID string
+	rabbitClient *rabbit2.Rabbit
 )
 
 type taskList struct {
@@ -33,12 +36,15 @@ func init() {
 	if err != nil {
 		log.Println(err.Error())
 	}
+
+	rabbitClient = rabbit2.New()
 }
 
 func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	token, err := redis.GetTokenFromCache()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	if token == "" {
@@ -46,6 +52,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		if MSClientID == "" || MSClientSecret == "" || MSRedirectUrl == "" {
 			log.Println("microsoft credentials not found!")
 			http.Error(w, "microsoft credentials environment variables must be set", http.StatusBadRequest)
+			return
 		}
 
 		log.Println("getting authorize code from url query...")
@@ -53,15 +60,33 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		if queryCode == "" {
 			log.Println("could not find authorize code in url...")
 			http.Error(w, "authorization code was not provided", http.StatusInternalServerError)
+			return
 		}
 
 		token, err = getCredentials(queryCode)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 
 	tasks, err := getTasks(token)
+	if err != nil {
+		log.Printf("an error ocurred while retrieving tasks: %v\n", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	for _, task := range *tasks {
+		err := rabbitClient.Publish("tasksQueue", task)
+		if err != nil {
+			log.Printf("could not publish task: %v\n", err.Error())
+		} else {
+			// delete task
+		}
+	}
+
+
 	content, err := json.Marshal(tasks)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

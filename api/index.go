@@ -1,12 +1,15 @@
 package handler
 
 import (
-	"github.com/google/uuid"
-	"github.com/jbonadiman/finance-bot/databases/redis"
-	"github.com/jbonadiman/finance-bot/utils"
-	"golang.org/x/oauth2"
 	"log"
 	"net/http"
+
+	"github.com/google/uuid"
+	"golang.org/x/oauth2"
+
+	"github.com/jbonadiman/finance-bot/databases/redis"
+	_ "github.com/jbonadiman/finance-bot/events/consumers"
+	"github.com/jbonadiman/finance-bot/utils"
 )
 
 var (
@@ -55,11 +58,13 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	if MSClientID == "" || MSClientSecret == "" || MSRedirectUrl == "" {
 		log.Println("microsoft credentials not found!")
 		http.Error(w, "microsoft credentials environment variables must be set", http.StatusBadRequest)
+		return
 	}
 
 	cachedToken, err := redis.GetTokenFromCache()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	var url string
@@ -74,3 +79,4 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	log.Printf("redirecting to: %v...", url)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
+

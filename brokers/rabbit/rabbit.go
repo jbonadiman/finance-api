@@ -1,15 +1,18 @@
 package rabbit
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/jbonadiman/finance-bot/utils"
-	"github.com/streadway/amqp"
 	"log"
+
+	"github.com/streadway/amqp"
+
+	"github.com/jbonadiman/finance-bot/utils"
 )
 
 var (
-	AmqpHost string
-	AmqpUser string
+	AmqpHost     string
+	AmqpUser     string
 	AmqpPassword string
 )
 
@@ -36,10 +39,16 @@ func init() {
 
 type ChannelReader interface {
 	GetConnectionString() string
-	RegisterConsumer(queueName string, action func(msg <-chan amqp.Delivery)) error
+	RegisterConsumer(
+		queueName string,
+		action func(msg <-chan amqp.Delivery),
+	) error
 }
 
-func (r *Rabbit) RegisterConsumer(queueName string, action func(msg <-chan amqp.Delivery)) error {
+func (r *Rabbit) RegisterConsumer(
+	queueName string,
+	action func(msg <-chan amqp.Delivery),
+) error {
 	conn, err := amqp.Dial(r.GetConnectionString())
 	if err != nil {
 		log.Printf("Failed to connect to RabbitMQ: %v", err)
@@ -56,11 +65,11 @@ func (r *Rabbit) RegisterConsumer(queueName string, action func(msg <-chan amqp.
 
 	q, err := ch.QueueDeclare(
 		queueName, // name
-		false,   // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		nil,     // arguments
+		false,     // durable
+		false,     // delete when unused
+		false,     // exclusive
+		false,     // no-wait
+		nil,       // arguments
 	)
 	if err != nil {
 		log.Printf("Failed to declare a queue: %v", err)
@@ -83,10 +92,65 @@ func (r *Rabbit) RegisterConsumer(queueName string, action func(msg <-chan amqp.
 
 	forever := make(chan bool)
 
-	go action(msgs)
+	go action(taskEvents)
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever
+
+	return nil
+}
+
+func (r *Rabbit) Publish(queue string, msg interface{}) error {
+	conn, err := amqp.Dial(r.ConnectionString)
+	if err != nil {
+		log.Printf("failed to connect to RabbitMQ: %s", err)
+		return err
+	}
+
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Printf("failed to open a channel: %s", err)
+		return err
+	}
+	defer ch.Close()
+
+	q, err := ch.QueueDeclare(
+		queue, // name
+		false,   // durable
+		false,   // delete when unused
+		false,   // exclusive
+		false,   // no-wait
+		nil,     // arguments
+	)
+
+	if err != nil {
+		log.Printf("failed to declare a queue: %s", err)
+		return err
+	}
+
+	msgAsJson, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("failed to marshal the message: %s", err)
+		return err
+	}
+
+	err = ch.Publish(
+		"",     // exchange
+		q.Name, // routing key
+		false,  // mandatory
+		false,  // immediate
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        msgAsJson,
+		},
+	)
+
+	if err != nil {
+		log.Printf("failed to publish a message: %s", err)
+		return err
+	}
 
 	return nil
 }
@@ -100,11 +164,20 @@ func (r *Rabbit) GetConnectionString() string {
 		r.User)
 }
 
-func New() (*Rabbit, error) {
-	return &Rabbit{
+func New() *Rabbit {
+	r := &Rabbit{
 		Host:     AmqpHost,
 		Password: AmqpPassword,
 		User:     AmqpUser,
 		Port:     "",
-	}, nil
+	}
+
+	r.ConnectionString = fmt.Sprintf(
+		"amqps://%v:%v@%v/%v",
+		r.User,
+		r.Password,
+		r.Host,
+		r.User)
+
+	return r
 }

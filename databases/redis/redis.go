@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis/v8"
-	"github.com/jbonadiman/finance-bot/utils"
 	"log"
+
+	"github.com/go-redis/redis/v8"
+
+	"github.com/jbonadiman/finance-bot/utils"
 )
 
 type DB utils.Connection
