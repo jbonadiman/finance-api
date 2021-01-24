@@ -55,7 +55,7 @@ func Main(w http.ResponseWriter, r *http.Request) {
 	var url string
 
 	if cachedToken != "" {
-		url = r.RequestURI + "/getTasks"
+		url = r.RequestURI + "/get-tasks"
 	} else {
 		msConfig := &oauth2.Config{
 			RedirectURL:  MSRedirectUrl,
