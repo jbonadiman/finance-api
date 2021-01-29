@@ -17,7 +17,8 @@ import (
 
 type DB struct {
 	utils.Connection
-	client *mongo.Client
+	client      *mongo.Client
+	IsDisconnected bool
 }
 
 var (
@@ -45,11 +46,6 @@ func init() {
 	}
 }
 
-func (db *DB) Connect() error {
-
-	return nil
-}
-
 func New() (*DB, error) {
 	if MongoHost == "" || MongoPassword == "" || MongoUser == "" {
 		return nil, errors.New("mongodb atlas credentials environment variables must be set")
@@ -63,6 +59,7 @@ func New() (*DB, error) {
 			Port:             "",
 			ConnectionString: "",
 		},
+		IsDisconnected: true,
 		client: nil,
 	}
 
@@ -85,14 +82,17 @@ func New() (*DB, error) {
 }
 
 func (db *DB) StoreOneTransaction(transaction entities.Transaction) (string, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	err := db.client.Connect(ctx)
-	if err != nil {
-		return "", err
+	if db.IsDisconnected {
+		err := db.client.Connect(ctx)
+		if err != nil {
+			return "", err
+		}
+
+		db.IsDisconnected = false
 	}
-
-	defer db.client.Disconnect(ctx)
 
 	col := db.client.Database("finances").Collection("transactions")
 
@@ -105,14 +105,17 @@ func (db *DB) StoreOneTransaction(transaction entities.Transaction) (string, err
 }
 
 func (db *DB) StoreTransactions(transactions ...entities.Transaction) (int, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	err := db.client.Connect(ctx)
-	if err != nil {
-		return 0, err
+	if db.IsDisconnected {
+		err := db.client.Connect(ctx)
+		if err != nil {
+			return 0, err
+		}
+
+		db.IsDisconnected = false
 	}
-
-	defer db.client.Disconnect(ctx)
 
 	col := db.client.Database("finances").Collection("transactions")
 

@@ -1,8 +1,9 @@
 package main
 
 import (
-	handler "github.com/jbonadiman/finance-bot/api"
 	"net/http"
+
+	"github.com/jbonadiman/finance-bot/api"
 )
 
 func main() {

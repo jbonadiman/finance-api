@@ -8,7 +8,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/jbonadiman/finance-bot/databases/redis"
-	_ "github.com/jbonadiman/finance-bot/events/consumers"
+//	_ "github.com/jbonadiman/finance-bot/events/consumers"
 	"github.com/jbonadiman/finance-bot/utils"
 )
 
