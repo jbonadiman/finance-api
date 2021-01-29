@@ -27,8 +27,6 @@ const (
 	TodoBaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
 	TodoTasksUrl      = TodoBaseUrl + "%v/tasks?$top=20"
 	TodoDeleteTaskUrl = TodoBaseUrl + "%v/tasks/%v"
-
-	locationName = "America/Sao_Paulo"
 )
 
 var (

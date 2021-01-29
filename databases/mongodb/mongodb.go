@@ -17,7 +17,7 @@ import (
 
 type DB struct {
 	utils.Connection
-	client      *mongo.Client
+	client         *mongo.Client
 	IsDisconnected bool
 }
 
@@ -60,7 +60,7 @@ func New() (*DB, error) {
 			ConnectionString: "",
 		},
 		IsDisconnected: true,
-		client: nil,
+		client:         nil,
 	}
 
 	db.ConnectionString = fmt.Sprintf(
@@ -81,7 +81,10 @@ func New() (*DB, error) {
 	return &db, nil
 }
 
-func (db *DB) StoreOneTransaction(transaction entities.Transaction) (string, error) {
+func (db *DB) StoreOneTransaction(transaction entities.Transaction) (
+	string,
+	error,
+) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -104,7 +107,10 @@ func (db *DB) StoreOneTransaction(transaction entities.Transaction) (string, err
 	return result.InsertedID.(primitive.ObjectID).String(), nil
 }
 
-func (db *DB) StoreTransactions(transactions ...entities.Transaction) (int, error) {
+func (db *DB) StoreTransactions(transactions ...entities.Transaction) (
+	int,
+	error,
+) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
