@@ -12,6 +12,7 @@ jobs:
 
     steps:
       - name: Call the authentication endpoint to refresh the token
+        id: auth_run
         run: |
           curl -X GET -LGI \
           --url "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize" \
@@ -24,3 +25,10 @@ jobs:
         env:
           MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
           MS_REDIRECT: ${{ secrets.MS_REDIRECT }}
+
+      - uses: logflare/action@v1
+        id: stats
+        with:
+          api_key: ${{ secrets.LOGFLARE_API_KEY }}
+          source_id: ${{ secrets.LOGFLARE_SOURCE_ID }}
+          message:  ${{ join(steps.auth_run.outputs.*, '\n') }}
