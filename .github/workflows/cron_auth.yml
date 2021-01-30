@@ -26,20 +26,19 @@ jobs:
         env:
           MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
           MS_REDIRECT: ${{ secrets.MS_REDIRECT }}
-      
-      - uses: pCYSl5EDgo/cat@master
-        id: getsResponseFile
-        with:
-          path: response.out
+#       - uses: pCYSl5EDgo/cat@master
+#         id: getsResponseFile
+#         with:
+#           path: response.out
 
-      - uses: logflare/action@v1
-        id: stats
-        with:
-          api_key: ${{ secrets.LOGFLARE_API_KEY }}
-          source_id: ${{ secrets.LOGFLARE_SOURCE_ID }}
-          message:  Called authentication endpoint
-          metadata: |
-            {
-              "version": "0.0.1"
-              "response": ${{ steps.getsResponseFile.outputs.text }}
-            }
+#       - uses: logflare/action@v1
+#         id: stats
+#         with:
+#           api_key: ${{ secrets.LOGFLARE_API_KEY }}
+#           source_id: ${{ secrets.LOGFLARE_SOURCE_ID }}
+#           message:  Called authentication endpoint
+#           metadata: |
+#             {
+#               "version": "0.0.1"
+#               "response": ${{ steps.getsResponseFile.outputs.text }}
+#             }
