@@ -20,7 +20,8 @@ jobs:
            --data-urlencode redirect_uri="$MS_REDIRECT" \
            --data response_type="code" \
            --data scope="offline_access+tasks.readwrite" \
-           --data state="12345"
+           --data state="12345" \
+           -o "response.out"
         shell: bash
         env:
           MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
@@ -31,4 +32,4 @@ jobs:
         with:
           api_key: ${{ secrets.LOGFLARE_API_KEY }}
           source_id: ${{ secrets.LOGFLARE_SOURCE_ID }}
-          message:  ${{ join(steps.auth_run.outputs.*, '\n') }}
+          message:  $(cat response.out)
