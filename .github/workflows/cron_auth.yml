@@ -37,11 +37,9 @@ jobs:
         with:
           api_key: ${{ secrets.LOGFLARE_API_KEY }}
           source_id: ${{ secrets.LOGFLARE_SOURCE_ID }}
-          message:  $RESPONSE
+          message:  Called authentication endpoint
           metadata: |
             {
               "version": "0.0.1"
+              "response": ${{ steps.getsResponseFile.outputs.text }}
             }
-        env:
-            RESPONSE: ${{ steps.getsResponseFile.outputs.text }}
-          
