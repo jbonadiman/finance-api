@@ -14,12 +14,12 @@ jobs:
       - name: Call the authentication endpoint to refresh the token
         id: authRun
         run: |
-          curl -X GET -L -G -I \
+          curl -X POST -L -I \
           --url "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize" \
            --data client_id="$MS_CLIENT_ID" \
            --data-urlencode redirect_uri="$MS_REDIRECT" \
            --data response_type="code" \
-           --data scope="offline_access+tasks.readwrite" \
+           --data scope="offline_access tasks.readwrite" \
            --data state="12345" \
            -o "response.out"
         shell: bash
