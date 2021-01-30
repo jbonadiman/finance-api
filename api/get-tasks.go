@@ -194,7 +194,7 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 
 	for i, task := range *tasks {
 		wg.Add(1)
-		go func(index int, t *models.Task) {
+		go func(index int, t models.Task) {
 			defer wg.Done()
 			values := strings.Split(t.Title, ";")
 
@@ -221,7 +221,7 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 				Category:       category,
 			}
 
-		}(i, &task)
+		}(i, task)
 	}
 
 	wg.Wait()
