@@ -14,7 +14,7 @@ jobs:
       - name: Call the authentication endpoint to refresh the token
         id: authRun
         run: |
-          curl -X POST -L -I \
+          curl -X POST -L \
           --url "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize" \
            --data client_id="$MS_CLIENT_ID" \
            --data-urlencode redirect_uri="$MS_REDIRECT" \
