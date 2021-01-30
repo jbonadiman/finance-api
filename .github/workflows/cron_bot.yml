@@ -3,13 +3,9 @@ name: run_bot
 on:
   schedule:
     - cron: '*/2 8-23 * * *'
-
-  workflow_dispatch:
-
 jobs:
   cron:
     runs-on: ubuntu-latest
-
     steps:
       - name: Call the bot endpoint to load transactions
         run: |
