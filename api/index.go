@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 
+	"github.com/jbonadiman/finance-bot/app_msgs"
 	"github.com/jbonadiman/finance-bot/databases/redis"
 	//	_ "github.com/jbonadiman/finance-bot/events/consumers"
 	"github.com/jbonadiman/finance-bot/utils"
@@ -56,14 +57,13 @@ func init() {
 func Index(w http.ResponseWriter, r *http.Request) {
 	log.Println("checking for microsoft credentials in environment variables...")
 	if MSClientID == "" || MSClientSecret == "" || MSRedirectUrl == "" {
-		log.Println("microsoft credentials not found!")
-		http.Error(w, "microsoft credentials environment variables must be set", http.StatusBadRequest)
+		app_msgs.SendBadRequest(&w, app_msgs.MsCredentials())
 		return
 	}
 
 	cachedToken, err := redis.GetTokenFromCache()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		app_msgs.SendInternalError(&w, err.Error())
 		return
 	}
 

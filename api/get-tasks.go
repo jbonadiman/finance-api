@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,8 +17,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/oauth2"
 
+	"github.com/jbonadiman/finance-bot/app_msgs"
 	"github.com/jbonadiman/finance-bot/databases/mongodb"
-	redisdb "github.com/jbonadiman/finance-bot/databases/redis"
+	redisDB "github.com/jbonadiman/finance-bot/databases/redis"
 	"github.com/jbonadiman/finance-bot/entities"
 	"github.com/jbonadiman/finance-bot/models"
 	"github.com/jbonadiman/finance-bot/utils"
@@ -53,68 +55,52 @@ func init() {
 }
 
 func FetchTasks(w http.ResponseWriter, r *http.Request) {
-	token, err := redisdb.GetTokenFromCache()
+	token, err := redisDB.GetTokenFromCache()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		app_msgs.SendInternalError(&w, err.Error())
 		return
 	}
 
 	if token == "" {
 		log.Println("checking for microsoft credentials in environment variables...")
 		if MSClientID == "" || MSClientSecret == "" || MSRedirectUrl == "" {
-			log.Println("microsoft credentials not found!")
-			http.Error(
-				w,
-				"microsoft credentials environment variables must be set",
-				http.StatusBadRequest,
-			)
+			app_msgs.SendBadRequest(&w, app_msgs.MsCredentials())
 			return
 		}
 
 		log.Println("getting authorize code from url query...")
 		queryCode := r.URL.Query().Get("code")
 		if queryCode == "" {
-			log.Println("could not find authorize code in url...")
-			http.Error(
-				w,
-				"authorization code was not provided",
-				http.StatusInternalServerError,
-			)
+			app_msgs.SendBadRequest(&w, app_msgs.AuthCodeMissing())
 			return
 		}
 
 		token, err = getCredentials(queryCode)
 		if err != nil {
 			log.Println("an error occurred while getting credentials...")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			app_msgs.SendInternalError(&w, err.Error())
 			return
 		}
 	}
 
 	tasks, err := getTasks(token)
 	if err != nil {
-		log.Printf(
-			"an error occurred while retrieving tasks: %v\n",
-			err.Error(),
-		)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Println("an error occurred while retrieving tasks...")
+		app_msgs.SendInternalError(&w, err.Error())
 		return
 	}
 
 	transactions, err := parseTasks(tasks)
 	if err != nil {
-		log.Printf("an error occurred while parsing tasks: %v\n", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Println("an error occurred while parsing tasks...")
+		app_msgs.SendBadRequest(&w, err.Error())
 		return
 	}
 
 	count, err := storeTransaction(transactions)
 	if err != nil {
-		log.Printf(
-			"an error occurred while storing transactions: %v\n",
-			err.Error(),
-		)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Println("an error occurred while storing transactions...")
+		app_msgs.SendInternalError(&w, err.Error())
 		return
 	}
 
@@ -142,19 +128,23 @@ func getCredentials(authorizationCode string) (string, error) {
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		log.Println("retrieving token using authorize code...")
 		token, err = MSConfig.Exchange(ctx, authorizationCode)
-		wg.Done()
 	}()
 
 	wg.Add(1)
 	go func() {
-		db, _ := redisdb.New()
+		defer wg.Done()
+		db, _ := redisDB.New()
 		redisClient, err = db.GetClient()
-		wg.Done()
 	}()
 
 	wg.Wait()
+
+	if err != nil {
+		return "", err
+	}
 
 	log.Println("storing token in cache...")
 	redisClient.Set(
@@ -168,6 +158,8 @@ func getCredentials(authorizationCode string) (string, error) {
 }
 
 func getTasks(token string) (*[]models.Task, error) {
+	var tasks taskList
+
 	tasksUrl := fmt.Sprintf(TodoTasksUrl, TaskListID)
 
 	req, err := http.NewRequest("GET", tasksUrl, nil)
@@ -185,8 +177,6 @@ func getTasks(token string) (*[]models.Task, error) {
 
 	defer resp.Body.Close()
 
-	var tasks taskList
-
 	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {
 		return nil, err
@@ -198,34 +188,49 @@ func getTasks(token string) (*[]models.Task, error) {
 }
 
 func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
-	var transactions []entities.Transaction
+	transactions := make([]entities.Transaction, len(*tasks))
 
-	for _, task := range *tasks {
-		values := strings.Split(task.Title, ";")
+	wg := sync.WaitGroup{}
 
-		cost, err := strconv.ParseFloat(
-			strings.TrimSpace(values[0]),
-			64,
-		)
-		if err != nil {
-			return nil, err
-		}
+	for i, task := range *tasks {
+		wg.Add(1)
+		go func(index int, t *models.Task) {
+			defer wg.Done()
+			values := strings.Split(t.Title, ";")
 
-		description := strings.TrimSpace(values[1])
-		category := strings.TrimSpace(values[2])
+			cost, err := strconv.ParseFloat(
+				strings.TrimSpace(values[0]),
+				64,
+			)
 
-		transactions = append(
-			transactions, entities.Transaction{
+			if err != nil {
+				return
+			}
+
+			description := strings.TrimSpace(values[1])
+			category := strings.TrimSpace(values[2])
+
+			transactions[index] = entities.Transaction{
 				ID:             primitive.NewObjectID(),
-				Date:           task.CreatedAt,
-				CreatedAt:      task.CreatedAt,
-				ModifiedAt:     task.ModifiedAt,
-				OriginalTaskID: task.Id,
+				Date:           t.CreatedAt,
+				CreatedAt:      t.CreatedAt,
+				ModifiedAt:     t.ModifiedAt,
+				OriginalTaskID: t.Id,
 				Description:    description,
 				Cost:           cost,
 				Category:       category,
-			},
-		)
+			}
+
+		}(i, &task)
+	}
+
+	wg.Wait()
+
+	parsed := len(transactions)
+	total := len(*tasks)
+
+	if parsed != total {
+		return &transactions, errors.New(app_msgs.NotAllTasksParsed(parsed, total))
 	}
 
 	return &transactions, nil
@@ -234,20 +239,12 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 func storeTransaction(transactions *[]entities.Transaction) (int, error) {
 	count, err := mongoClient.StoreTransactions(*transactions...)
 	if err != nil {
-		log.Printf(
-			"an error ocurred. Stored %v transactions of %v: %v\n",
-			count,
-			len(*transactions),
-			err.Error(),
-		)
+		log.Println(app_msgs.NotAllTransactionsStored(count, len(*transactions)))
 		return count, err
-	} else {
-		log.Printf(
-			"all %v transactions were stored successfully!\n",
-			count,
-		)
-		return count, nil
 	}
+
+	log.Printf(app_msgs.AllTransactionsStored(count))
+	return count, nil
 }
 
 func deleteTasks(token string, tasks *[]models.Task) error {
@@ -284,18 +281,18 @@ func deleteTasks(token string, tasks *[]models.Task) error {
 	for _, u := range deleteUrls {
 		wg.Add(1)
 		go func(deleteUrl *url.URL) {
+			defer wg.Done()
 			log.Printf("executing request to %q\n", deleteUrl)
 
 			newReq := authReq
 			newReq.URL = deleteUrl
 
 			_, _ = http.DefaultClient.Do(newReq)
-			wg.Done()
 		}(u)
 	}
 
 	wg.Wait()
 
-	log.Printf("deleted %v tasks!", len(*tasks))
+	log.Printf(app_msgs.AllTasksDeleted(len(*tasks)))
 	return nil
 }
