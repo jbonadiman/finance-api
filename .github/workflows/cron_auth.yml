@@ -1,0 +1,17 @@
+name: auth-refresh
+
+on:
+  schedule:
+    - cron: '*/45 * * * *'
+
+  workflow_dispatch:
+
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call the authentication endpoint to refresh the token
+        run: |
+          curl --request GET \
+          --url 'https://finances-bot.vercel.app/api'
