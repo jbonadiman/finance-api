@@ -33,3 +33,7 @@ jobs:
           api_key: ${{ secrets.LOGFLARE_API_KEY }}
           source_id: ${{ secrets.LOGFLARE_SOURCE_ID }}
           message:  $(cat response.out)
+          metadata: |
+            {
+              "version": 0.0.1
+            }
