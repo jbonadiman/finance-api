@@ -90,6 +90,11 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(*tasks) == 0 {
+		w.Write([]byte("could not find any tasks to be stored"))
+		return
+	}
+
 	transactions, err := parseTasks(tasks, mongoClient)
 	if err != nil {
 		log.Println("an error occurred while parsing tasks...")
