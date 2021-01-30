@@ -15,4 +15,5 @@ type Transaction struct {
 	Description    string             `json:"description" bson:"description"`
 	Cost           float64            `json:"value" bson:"value"`
 	Category       string             `json:"category" bson:"category"`
+	Subcategory    string             `json:"subcategory" bson:"subcategory"`
 }

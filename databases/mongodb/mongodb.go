@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -20,6 +20,8 @@ type DB struct {
 	client         *mongo.Client
 	IsDisconnected bool
 }
+
+const TimeOut = 5 * time.Second
 
 var (
 	MongoHost     string
@@ -78,40 +80,24 @@ func New() (*DB, error) {
 
 	db.client = client
 
-	return &db, nil
-}
-
-func (db *DB) StoreOneTransaction(transaction entities.Transaction) (
-	string,
-	error,
-) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 	defer cancel()
 
-	if db.IsDisconnected {
-		err := db.client.Connect(ctx)
-		if err != nil {
-			return "", err
-		}
-
-		db.IsDisconnected = false
-	}
-
-	col := db.client.Database("finances").Collection("transactions")
-
-	result, err := col.InsertOne(ctx, transaction)
+	err = db.client.Connect(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return result.InsertedID.(primitive.ObjectID).String(), nil
+	db.IsDisconnected = false
+
+	return &db, nil
 }
 
 func (db *DB) StoreTransactions(transactions ...entities.Transaction) (
 	int,
 	error,
 ) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 	defer cancel()
 
 	if db.IsDisconnected {
@@ -136,4 +122,31 @@ func (db *DB) StoreTransactions(transactions ...entities.Transaction) (
 	}
 
 	return len(result.InsertedIDs), nil
+}
+
+func (db *DB) GetCategory(unparsedCategory string) (*entities.Subcategory, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
+	if db.IsDisconnected {
+		err := db.client.Connect(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		db.IsDisconnected = false
+	}
+
+	col := db.client.Database("finances").Collection("subcategories")
+
+	filter := bson.D{{"keywords", unparsedCategory}}
+
+	sub := entities.Subcategory{}
+
+	err := col.FindOne(ctx, filter).Decode(&sub)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sub, nil
 }

@@ -90,7 +90,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transactions, err := parseTasks(tasks)
+	transactions, err := parseTasks(tasks, mongoClient)
 	if err != nil {
 		log.Println("an error occurred while parsing tasks...")
 		app_msgs.SendBadRequest(&w, err.Error())
@@ -104,15 +104,11 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// err = deleteTasks(token, tasks)
-	// if err != nil {
-	// 	log.Printf(
-	// 		"an error occurred deleting tasks: %v\n",
-	// 		err.Error(),
-	// 	)
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
+	err = deleteTasks(token, tasks)
+	if err != nil {
+		app_msgs.SendInternalError(&w, app_msgs.ErrorDeletingTasks(err.Error()))
+		return
+	}
 
 	w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
 }
@@ -187,7 +183,7 @@ func getTasks(token string) (*[]models.Task, error) {
 	return &tasks.Value, nil
 }
 
-func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
+func parseTasks(tasks *[]models.Task, mongo *mongodb.DB) (*[]entities.Transaction, error) {
 	transactions := make([]entities.Transaction, len(*tasks))
 
 	wg := sync.WaitGroup{}
@@ -208,7 +204,12 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 			}
 
 			description := strings.TrimSpace(values[1])
-			category := strings.TrimSpace(values[2])
+			unparsedCategory := strings.TrimSpace(values[2])
+
+			category, err := parseSubcategory(unparsedCategory, mongo)
+			if err != nil {
+				return
+			}
 
 			transactions[index] = entities.Transaction{
 				ID:             primitive.NewObjectID(),
@@ -218,7 +219,7 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 				OriginalTaskID: t.Id,
 				Description:    description,
 				Cost:           cost,
-				Category:       category,
+				Subcategory:    category,
 			}
 
 		}(i, task)
@@ -234,6 +235,15 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 	}
 
 	return &transactions, nil
+}
+
+func parseSubcategory(sub string, mongo *mongodb.DB) (string, error) {
+	subcategory, err := mongo.GetCategory(sub)
+	if err != nil {
+		return "", err
+	}
+
+	return (*subcategory).Name, nil
 }
 
 func storeTransaction(transactions *[]entities.Transaction) (int, error) {
