@@ -183,7 +183,10 @@ func getTasks(token string) (*[]models.Task, error) {
 	return &tasks.Value, nil
 }
 
-func parseTasks(tasks *[]models.Task, mongo *mongodb.DB) (*[]entities.Transaction, error) {
+func parseTasks(
+	tasks *[]models.Task,
+	mongo *mongodb.DB,
+) (*[]entities.Transaction, error) {
 	transactions := make([]entities.Transaction, len(*tasks))
 
 	wg := sync.WaitGroup{}
@@ -258,7 +261,12 @@ func storeTransaction(transactions *[]entities.Transaction) (int, error) {
 }
 
 func deleteTasks(token string, tasks *[]models.Task) error {
-	var deleteUrls []*url.URL
+	authReq, err := http.NewRequest("DELETE", "", nil)
+	if err != nil {
+		return err
+	}
+
+	authReq.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token))
 
 	for _, task := range *tasks {
 		urlDeleteTask, err := url.Parse(
@@ -273,35 +281,16 @@ func deleteTasks(token string, tasks *[]models.Task) error {
 			return err
 		}
 
-		deleteUrls = append(
-			deleteUrls,
-			urlDeleteTask,
-		)
+		log.Printf("executing request to %q\n", urlDeleteTask)
+
+		newReq := authReq
+		newReq.URL = urlDeleteTask
+
+		_, err = http.DefaultClient.Do(newReq)
+		if err != nil {
+			return err
+		}
 	}
-
-	wg := sync.WaitGroup{}
-
-	authReq, err := http.NewRequest("DELETE", "", nil)
-	if err != nil {
-		return err
-	}
-
-	authReq.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token))
-
-	for _, u := range deleteUrls {
-		wg.Add(1)
-		go func(deleteUrl *url.URL) {
-			defer wg.Done()
-			log.Printf("executing request to %q\n", deleteUrl)
-
-			newReq := authReq
-			newReq.URL = deleteUrl
-
-			_, _ = http.DefaultClient.Do(newReq)
-		}(u)
-	}
-
-	wg.Wait()
 
 	log.Printf(app_msgs.AllTasksDeleted(len(*tasks)))
 	return nil

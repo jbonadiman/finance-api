@@ -11,6 +11,7 @@ const (
 	errorDeletingTasks = "an error occurred deleting tasks: %v\n"
 )
 
+// Successes
 const (
 	allTransactionsStored = "all %v transactions were stored successfully!\n"
 	allTasksDeleted = "deleted %v tasks!\n"
