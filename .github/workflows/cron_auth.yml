@@ -12,6 +12,7 @@ jobs:
 
     steps:
       - name: Call the authentication endpoint to refresh the token
-        run: |
-          curl --request GET \
-          --url 'https://finances-bot.vercel.app/api'
+        uses: satak/webrequest-action@master
+        with:
+          url: https://finances-bot.vercel.app/api
+          method: GET
