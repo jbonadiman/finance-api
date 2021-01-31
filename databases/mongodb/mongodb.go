@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -17,8 +18,10 @@ import (
 
 type DB struct {
 	utils.Connection
-	client         *mongo.Client
-	IsDisconnected bool
+	client                  *mongo.Client
+	IsDisconnected          bool
+	transactionsCollection  *mongo.Collection
+	subcategoriesCollection *mongo.Collection
 }
 
 const TimeOut = 5 * time.Second
@@ -69,7 +72,8 @@ func New() (*DB, error) {
 		"mongodb+srv://%v:%v@%v/finances?retryWrites=true&w=majority",
 		db.User,
 		db.Password,
-		db.Host)
+		db.Host,
+	)
 
 	client, err := mongo.NewClient(
 		options.Client().ApplyURI(db.ConnectionString),
@@ -90,6 +94,10 @@ func New() (*DB, error) {
 
 	db.IsDisconnected = false
 
+	financesDb := db.client.Database("finances")
+	db.transactionsCollection = financesDb.Collection("transactions")
+	db.subcategoriesCollection = financesDb.Collection("subcategories")
+
 	return &db, nil
 }
 
@@ -109,14 +117,12 @@ func (db *DB) StoreTransactions(transactions ...entities.Transaction) (
 		db.IsDisconnected = false
 	}
 
-	col := db.client.Database("finances").Collection("transactions")
-
 	var items []interface{}
 	for _, t := range transactions {
 		items = append(items, t)
 	}
 
-	result, err := col.InsertMany(ctx, items)
+	result, err := db.transactionsCollection.InsertMany(ctx, items)
 	if err != nil {
 		return 0, err
 	}
@@ -124,7 +130,10 @@ func (db *DB) StoreTransactions(transactions ...entities.Transaction) (
 	return len(result.InsertedIDs), nil
 }
 
-func (db *DB) GetCategory(unparsedCategory string) (*entities.Subcategory, error) {
+func (db *DB) ParseCategory(unparsedCategory string) (
+	*entities.Subcategory,
+	error,
+) {
 	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 	defer cancel()
 
@@ -137,16 +146,59 @@ func (db *DB) GetCategory(unparsedCategory string) (*entities.Subcategory, error
 		db.IsDisconnected = false
 	}
 
-	col := db.client.Database("finances").Collection("subcategories")
-
 	filter := bson.D{{"keywords", unparsedCategory}}
 
 	sub := entities.Subcategory{}
 
-	err := col.FindOne(ctx, filter).Decode(&sub)
+	err := db.subcategoriesCollection.FindOne(ctx, filter).Decode(&sub)
 	if err != nil {
 		return nil, err
 	}
 
 	return &sub, nil
+}
+
+func (db *DB) GetTransactionBySubcategory(subRegex string) (
+	*[]entities.Transaction,
+	error,
+) {
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
+	if db.IsDisconnected {
+		err := db.client.Connect(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		db.IsDisconnected = false
+	}
+
+	filter := bson.M{"subcategory": primitive.Regex{Pattern: subRegex}}
+
+	var transactions []entities.Transaction
+
+	cursor, err := db.transactionsCollection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		currTransaction := entities.Transaction{}
+		if err = cursor.Decode(&currTransaction); err != nil {
+			log.Println(err.Error())
+		}
+
+		transactions = append(transactions, currTransaction)
+	}
+
+	log.Printf(
+		"found %v transactions with the subcategory %q pattern",
+		len(transactions),
+		subRegex,
+	)
+
+	return &transactions, nil
 }

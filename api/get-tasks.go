@@ -246,7 +246,7 @@ func parseTasks(
 }
 
 func parseSubcategory(sub string, mongo *mongodb.DB) (string, error) {
-	subcategory, err := mongo.GetCategory(sub)
+	subcategory, err := mongo.ParseCategory(sub)
 	if err != nil {
 		return "", err
 	}
