@@ -14,7 +14,7 @@
   ],
   "functions": {
     "api/*.go": {
-      "memory": 64,
+      "memory": 128,
       "maxDuration": 10
     }
   }
