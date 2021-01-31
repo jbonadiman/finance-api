@@ -91,7 +91,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(*tasks) == 0 {
-		w.Write([]byte("could not find any tasks to be stored"))
+		_, _ = w.Write([]byte("could not find any tasks to be stored"))
 		return
 	}
 
