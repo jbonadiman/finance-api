@@ -2,41 +2,18 @@ package redis
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 
 	"github.com/go-redis/redis/v8"
 
+	"github.com/jbonadiman/finance-bot/environment"
 	"github.com/jbonadiman/finance-bot/utils"
 )
 
 type DB utils.Connection
 
-var (
-	LambdaHost     string
-	LambdaPassword string
-	LambdaPort     string
-)
-
-func init() {
-	var err error
-
-	LambdaHost, err = utils.LoadVar("LAMBDA_HOST")
-	if err != nil {
-		log.Println(err.Error())
-	}
-
-	LambdaPassword, err = utils.LoadVar("LAMBDA_SECRET")
-	if err != nil {
-		log.Println(err.Error())
-	}
-
-	LambdaPort, err = utils.LoadVar("LAMBDA_PORT")
-	if err != nil {
-		log.Println(err.Error())
-	}
-}
+var redisDB *DB
 
 func (db *DB) GetClient() (*redis.Client, error) {
 	connectionStr := db.GetConnectionString()
@@ -58,29 +35,23 @@ func (db *DB) GetConnectionString() string {
 		db.Port)
 }
 
-func New() (*DB, error) {
-	if LambdaHost == "" || LambdaPassword == "" || LambdaPort == "" {
-		return nil, errors.New("lambda store credentials environment variables must be set")
+func GetDB() *DB {
+	if redisDB == nil {
+		redisDB = &DB{
+			Host:     environment.LambdaHost,
+			Password: environment.LambdaPassword,
+			User:     "",
+			Port:     environment.LambdaPort,
+		}
 	}
 
-	db := DB{
-		Host:     LambdaHost,
-		Password: LambdaPassword,
-		User:     "",
-		Port:     LambdaPort,
-	}
-
-	return &db, nil
+	return redisDB
 }
 
 func GetTokenFromCache() (string, error) {
 	log.Println("attempting to retrieve token from cache...")
-	db, err := New()
-	if err != nil {
-		return "", err
-	}
 
-	redisClient, err := db.GetClient()
+	redisClient, err := GetDB().GetClient()
 	if err != nil {
 		return "", err
 	}

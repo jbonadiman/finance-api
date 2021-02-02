@@ -48,7 +48,7 @@ func init() {
 		log.Println(err.Error())
 	}
 
-	mongoClient, err = mongodb.New()
+	mongoClient, err = mongodb.GetDB()
 	if err != nil {
 		log.Println(err.Error())
 	}

@@ -2,7 +2,6 @@ package mongodb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/jbonadiman/finance-bot/entities"
+	"github.com/jbonadiman/finance-bot/environment"
 	"github.com/jbonadiman/finance-bot/utils"
 )
 
@@ -26,79 +26,55 @@ type DB struct {
 
 const TimeOut = 5 * time.Second
 
-var (
-	MongoHost     string
-	MongoPassword string
-	MongoUser     string
-)
+var mongoDB *DB
 
-func init() {
-	var err error
+func GetDB() (*DB, error) {
+	if mongoDB == nil {
+		mongoDB = &DB{
+			Connection: utils.Connection{
+				Host:             environment.MongoHost,
+				Password:         environment.MongoPassword,
+				User:             environment.MongoUser,
+				Port:             "",
+				ConnectionString: "",
+			},
+			IsDisconnected: true,
+			client:         nil,
+		}
 
-	MongoHost, err = utils.LoadVar("MONGO_HOST")
-	if err != nil {
-		log.Println(err.Error())
+		mongoDB.ConnectionString = fmt.Sprintf(
+			"mongodb+srv://%v:%v@%v/finances?retryWrites=true&w=majority",
+			mongoDB.User,
+			mongoDB.Password,
+			mongoDB.Host,
+		)
+
+		client, err := mongo.NewClient(
+			options.Client().ApplyURI(mongoDB.ConnectionString),
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		mongoDB.client = client
+
+		ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+		defer cancel()
+
+		err = mongoDB.client.Connect(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		mongoDB.IsDisconnected = false
+
+		financesDb := mongoDB.client.Database("finances")
+		mongoDB.transactionsCollection = financesDb.Collection("transactions")
+		mongoDB.subcategoriesCollection = financesDb.Collection("subcategories")
 	}
 
-	MongoPassword, err = utils.LoadVar("MONGO_SECRET")
-	if err != nil {
-		log.Println(err.Error())
-	}
-
-	MongoUser, err = utils.LoadVar("MONGO_USER")
-	if err != nil {
-		log.Println(err.Error())
-	}
-}
-
-func New() (*DB, error) {
-	if MongoHost == "" || MongoPassword == "" || MongoUser == "" {
-		return nil, errors.New("mongodb atlas credentials environment variables must be set")
-	}
-
-	db := DB{
-		Connection: utils.Connection{
-			Host:             MongoHost,
-			Password:         MongoPassword,
-			User:             MongoUser,
-			Port:             "",
-			ConnectionString: "",
-		},
-		IsDisconnected: true,
-		client:         nil,
-	}
-
-	db.ConnectionString = fmt.Sprintf(
-		"mongodb+srv://%v:%v@%v/finances?retryWrites=true&w=majority",
-		db.User,
-		db.Password,
-		db.Host,
-	)
-
-	client, err := mongo.NewClient(
-		options.Client().ApplyURI(db.ConnectionString),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	db.client = client
-
-	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
-	defer cancel()
-
-	err = db.client.Connect(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	db.IsDisconnected = false
-
-	financesDb := db.client.Database("finances")
-	db.transactionsCollection = financesDb.Collection("transactions")
-	db.subcategoriesCollection = financesDb.Collection("subcategories")
-
-	return &db, nil
+	return mongoDB, nil
 }
 
 func (db *DB) StoreTransactions(transactions ...entities.Transaction) (

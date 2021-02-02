@@ -12,7 +12,7 @@ import (
 func init() {
 	var err error
 
-	mongoClient, err = mongodb.New()
+	mongoClient, err = mongodb.GetDB()
 	if err != nil {
 		log.Println(err.Error())
 	}
