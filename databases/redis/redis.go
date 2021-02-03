@@ -110,14 +110,18 @@ func GetTokenFromCache() (*oauth2.Token, error) {
 
 	wg.Wait()
 
-	log.Println("retrieved token from cache successfully")
+	if accessToken != "" && tokenType != "" && refreshToken != "" {
+		log.Println("retrieved token from cache successfully")
 
-	token := oauth2.Token{
-		AccessToken:  accessToken,
-		TokenType:    tokenType,
-		RefreshToken: refreshToken,
-		Expiry:       time.Time{},
+		token := oauth2.Token{
+			AccessToken:  accessToken,
+			TokenType:    tokenType,
+			RefreshToken: refreshToken,
+			Expiry:       time.Time{},
+		}
+
+		return &token, nil
 	}
 
-	return &token, nil
+	return nil, nil
 }

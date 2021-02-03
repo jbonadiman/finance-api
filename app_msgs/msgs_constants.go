@@ -12,6 +12,7 @@ const (
 	invalidAuthState = "invalid auth state: %v\n"
 	errorAuthenticating = "an error occurred during authentication: %v\n"
 	redisConnectionError = "an error occurred while connecting to Redis: %v\n"
+	notAuthenticated = "there is no token information saved. Please, authenticate"
 )
 
 // Successes
@@ -22,6 +23,10 @@ const (
 
 func MsCredentials() string {
 	return msCredentials
+}
+
+func NotAuthenticated() string {
+	return notAuthenticated
 }
 
 func AuthCodeMissing() string {
