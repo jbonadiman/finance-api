@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,18 +10,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"golang.org/x/oauth2"
 
 	"github.com/jbonadiman/finance-bot/app_msgs"
 	"github.com/jbonadiman/finance-bot/databases/mongodb"
 	redisDB "github.com/jbonadiman/finance-bot/databases/redis"
 	"github.com/jbonadiman/finance-bot/entities"
+	"github.com/jbonadiman/finance-bot/environment"
 	"github.com/jbonadiman/finance-bot/models"
-	"github.com/jbonadiman/finance-bot/utils"
 )
 
 const (
@@ -32,7 +28,6 @@ const (
 )
 
 var (
-	TaskListID  string
 	mongoClient *mongodb.DB
 )
 
@@ -43,11 +38,6 @@ type taskList struct {
 func init() {
 	var err error
 
-	TaskListID, err = utils.LoadVar("TASK_LIST_ID")
-	if err != nil {
-		log.Println(err.Error())
-	}
-
 	mongoClient, err = mongodb.GetDB()
 	if err != nil {
 		log.Println(err.Error())
@@ -56,31 +46,9 @@ func init() {
 
 func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	token, err := redisDB.GetTokenFromCache()
-	if err != nil {
+	if err != nil || token == "" {
 		app_msgs.SendInternalError(&w, err.Error())
 		return
-	}
-
-	if token == "" {
-		log.Println("checking for microsoft credentials in environment variables...")
-		if MSClientID == "" || MSClientSecret == "" || MSRedirectUrl == "" {
-			app_msgs.SendBadRequest(&w, app_msgs.MsCredentials())
-			return
-		}
-
-		log.Println("getting authorize code from url query...")
-		queryCode := r.URL.Query().Get("code")
-		if queryCode == "" {
-			app_msgs.SendBadRequest(&w, app_msgs.AuthCodeMissing())
-			return
-		}
-
-		token, err = getCredentials(queryCode)
-		if err != nil {
-			log.Println("an error occurred while getting credentials...")
-			app_msgs.SendInternalError(&w, err.Error())
-			return
-		}
 	}
 
 	tasks, err := getTasks(token)
@@ -95,7 +63,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transactions, err := parseTasks(tasks, mongoClient)
+	transactions, err := parseTasks(tasks)
 	if err != nil {
 		log.Println("an error occurred while parsing tasks...")
 		app_msgs.SendBadRequest(&w, err.Error())
@@ -118,50 +86,10 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
 }
 
-func getCredentials(authorizationCode string) (string, error) {
-	ctx := context.Background()
-
-	var token *oauth2.Token
-	var redisClient *redis.Client
-	var err error
-
-	wg := sync.WaitGroup{}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		log.Println("retrieving token using authorize code...")
-		token, err = MSConfig.Exchange(ctx, authorizationCode)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		db, _ := redisDB.New()
-		redisClient, err = db.GetClient()
-	}()
-
-	wg.Wait()
-
-	if err != nil {
-		return "", err
-	}
-
-	log.Println("storing token in cache...")
-	redisClient.Set(
-		context.Background(),
-		"token",
-		token.AccessToken,
-		token.Expiry.Sub(time.Now()),
-	)
-
-	return token.AccessToken, nil
-}
-
 func getTasks(token string) (*[]models.Task, error) {
 	var tasks taskList
 
-	tasksUrl := fmt.Sprintf(TodoTasksUrl, TaskListID)
+	tasksUrl := fmt.Sprintf(TodoTasksUrl, environment.TaskListID)
 
 	req, err := http.NewRequest("GET", tasksUrl, nil)
 	if err != nil {
@@ -188,10 +116,7 @@ func getTasks(token string) (*[]models.Task, error) {
 	return &tasks.Value, nil
 }
 
-func parseTasks(
-	tasks *[]models.Task,
-	mongo *mongodb.DB,
-) (*[]entities.Transaction, error) {
+func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 	transactions := make([]entities.Transaction, len(*tasks))
 
 	wg := sync.WaitGroup{}
@@ -214,7 +139,7 @@ func parseTasks(
 			description := strings.TrimSpace(values[1])
 			unparsedCategory := strings.TrimSpace(values[2])
 
-			category, err := parseSubcategory(unparsedCategory, mongo)
+			category, err := parseSubcategory(unparsedCategory)
 			if err != nil {
 				return
 			}
@@ -245,8 +170,8 @@ func parseTasks(
 	return &transactions, nil
 }
 
-func parseSubcategory(sub string, mongo *mongodb.DB) (string, error) {
-	subcategory, err := mongo.ParseCategory(sub)
+func parseSubcategory(sub string) (string, error) {
+	subcategory, err := mongoClient.ParseCategory(sub)
 	if err != nil {
 		return "", err
 	}
@@ -277,7 +202,7 @@ func deleteTasks(token string, tasks *[]models.Task) error {
 		urlDeleteTask, err := url.Parse(
 			fmt.Sprintf(
 				TodoDeleteTaskUrl,
-				TaskListID,
+				environment.TaskListID,
 				task.Id,
 			),
 		)

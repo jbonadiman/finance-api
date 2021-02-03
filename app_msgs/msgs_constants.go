@@ -9,6 +9,9 @@ const (
 	notAllTasksParsed = "error: not all tasks could be parsed. Parsed %v tasks of %v\n"
 	notAllTransactionsStored = "error: not all transactions could be stored. Saved %v transactions of %v\n"
 	errorDeletingTasks = "an error occurred deleting tasks: %v\n"
+	invalidAuthState = "invalid auth state: %v\n"
+	errorAuthenticating = "an error occurred during authentication: %v\n"
+	redisConnectionError = "an error occurred while connecting to Redis: %v\n"
 )
 
 // Successes
@@ -23,6 +26,18 @@ func MsCredentials() string {
 
 func AuthCodeMissing() string {
 	return authCodeMissing
+}
+
+func InvalidAuthState(state string) string {
+	return fmt.Sprintf(invalidAuthState, state)
+}
+
+func RedisConnectionError(error string) string {
+	return fmt.Sprintf(redisConnectionError, error)
+}
+
+func ErrorAuthenticating(error string) string {
+	return fmt.Sprintf(errorAuthenticating, error)
 }
 
 func NotAllTasksParsed(parsed int, total int) string {

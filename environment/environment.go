@@ -28,9 +28,20 @@ var (
 	MongoUser     string
 )
 
+var (
+	TaskListID string
+)
+
 func init() {
 	loadMicrosoftVars()
 	loadLambdaStoreVars()
+	loadMongoDBVars()
+
+	var err error
+	TaskListID, err = loadVar("TASK_LIST_ID")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }
 
 func loadLambdaStoreVars() {
