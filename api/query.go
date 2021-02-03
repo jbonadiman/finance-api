@@ -7,7 +7,6 @@ import (
 
 	"github.com/jbonadiman/finance-bot/app_msgs"
 	"github.com/jbonadiman/finance-bot/databases/mongodb"
-	"github.com/jbonadiman/finance-bot/workers"
 )
 
 func init() {
@@ -17,8 +16,6 @@ func init() {
 	if err != nil {
 		log.Println(err.Error())
 	}
-
-	go workers.RequestAuthPage()
 }
 
 func QueryTransactions(w http.ResponseWriter, r *http.Request) {

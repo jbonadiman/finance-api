@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 )
 
 var doOnce sync.Once
@@ -30,6 +31,7 @@ var (
 
 var (
 	TaskListID string
+	AuthCronDuration time.Duration
 )
 
 func init() {
@@ -39,6 +41,16 @@ func init() {
 
 	var err error
 	TaskListID, err = loadVar("TASK_LIST_ID")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	authDuration, err := loadVar("AUTH_DURATION")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	AuthCronDuration, err = time.ParseDuration(authDuration)
 	if err != nil {
 		log.Fatal(err.Error())
 	}

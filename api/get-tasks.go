@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/jbonadiman/finance-bot/entities"
 	"github.com/jbonadiman/finance-bot/environment"
 	"github.com/jbonadiman/finance-bot/models"
+	"github.com/jbonadiman/finance-bot/workers"
 )
 
 const (
@@ -29,6 +31,7 @@ const (
 
 var (
 	mongoClient *mongodb.DB
+	httpClient *http.Client
 )
 
 type taskList struct {
@@ -42,16 +45,18 @@ func init() {
 	if err != nil {
 		log.Println(err.Error())
 	}
+
+	token, err := redisDB.GetTokenFromCache()
+	if err != nil {
+		log.Fatalf("could not assemble token: %v\n", err.Error())
+	}
+
+	httpClient = workers.MSConfig.Client(context.Background(), token)
 }
 
 func FetchTasks(w http.ResponseWriter, r *http.Request) {
-	token, err := redisDB.GetTokenFromCache()
-	if err != nil || token == "" {
-		app_msgs.SendInternalError(&w, err.Error())
-		return
-	}
 
-	tasks, err := getTasks(token)
+	tasks, err := getTasks()
 	if err != nil {
 		log.Println("an error occurred while retrieving tasks...")
 		app_msgs.SendInternalError(&w, err.Error())
@@ -77,7 +82,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = deleteTasks(token, tasks)
+	err = deleteTasks(tasks)
 	if err != nil {
 		app_msgs.SendInternalError(&w, app_msgs.ErrorDeletingTasks(err.Error()))
 		return
@@ -86,7 +91,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
 }
 
-func getTasks(token string) (*[]models.Task, error) {
+func getTasks() (*[]models.Task, error) {
 	var tasks taskList
 
 	tasksUrl := fmt.Sprintf(TodoTasksUrl, environment.TaskListID)
@@ -96,10 +101,8 @@ func getTasks(token string) (*[]models.Task, error) {
 		return nil, err
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token))
-
 	log.Println("listing tasks...")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -190,13 +193,11 @@ func storeTransaction(transactions *[]entities.Transaction) (int, error) {
 	return count, nil
 }
 
-func deleteTasks(token string, tasks *[]models.Task) error {
+func deleteTasks(tasks *[]models.Task) error {
 	authReq, err := http.NewRequest("DELETE", "", nil)
 	if err != nil {
 		return err
 	}
-
-	authReq.Header.Add("Authorization", fmt.Sprintf("Bearer %v", token))
 
 	for _, task := range *tasks {
 		urlDeleteTask, err := url.Parse(
@@ -216,7 +217,7 @@ func deleteTasks(token string, tasks *[]models.Task) error {
 		newReq := authReq
 		newReq.URL = urlDeleteTask
 
-		_, err = http.DefaultClient.Do(newReq)
+		_, err = httpClient.Do(newReq)
 		if err != nil {
 			return err
 		}

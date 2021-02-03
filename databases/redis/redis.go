@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
+	"time"
 
 	"github.com/go-redis/redis/v8"
+	"golang.org/x/oauth2"
 
 	"github.com/jbonadiman/finance-bot/environment"
 	"github.com/jbonadiman/finance-bot/utils"
@@ -48,21 +51,73 @@ func GetDB() *DB {
 	return redisDB
 }
 
-func GetTokenFromCache() (string, error) {
+func GetTokenFromCache() (*oauth2.Token, error) {
 	log.Println("attempting to retrieve token from cache...")
 
 	redisClient, err := GetDB().GetClient()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	token := redisClient.Get(context.Background(), "token").Val()
+	ctx := context.Background()
+	wg := sync.WaitGroup{}
 
-	if token == "" {
-		log.Println("token was not found on cache")
-		return "", nil
-	}
+	var (
+		accessToken,
+		refreshToken,
+		// expiry,
+		tokenType string
+	)
+
+	log.Println("getting token from cache...")
+
+	wg.Add(3)
+	go func() {
+		accessToken = redisClient.Get(
+			ctx,
+			"token:AccessToken",
+		).Val()
+
+		wg.Done()
+	}()
+
+	go func() {
+		refreshToken = redisClient.Get(
+			ctx,
+			"token:RefreshToken",
+		).Val()
+
+		wg.Done()
+	}()
+
+	go func() {
+		tokenType = redisClient.Get(
+			ctx,
+			"token:TokenType",
+		).Val()
+
+		wg.Done()
+	}()
+
+	// go func() {
+	// 	expiry = redisClient.Get(
+	// 		ctx,
+	// 		"token:Expiry",
+	// 	).Val()
+	//
+	// 	wg.Done()
+	// }()
+
+	wg.Wait()
 
 	log.Println("retrieved token from cache successfully")
-	return token, nil
+
+	token := oauth2.Token{
+		AccessToken:  accessToken,
+		TokenType:    tokenType,
+		RefreshToken: refreshToken,
+		Expiry:       time.Time{},
+	}
+
+	return &token, nil
 }

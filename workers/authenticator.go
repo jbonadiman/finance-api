@@ -14,7 +14,7 @@ import (
 var (
 	MSConfig  *oauth2.Config
 	AuthState uuid.UUID
-	delay = time.Tick(time.Minute * 45)
+	delay = time.Tick(environment.AuthCronDuration)
 )
 
 const (
@@ -47,10 +47,12 @@ func RequestAuthPage() {
 		url := MSConfig.AuthCodeURL(AuthState.String())
 
 		log.Printf("requesting auth page: %v...", url)
-		_, err := http.Get(url)
+		resp, err := http.Get(url)
 
 		if err != nil {
 			log.Printf("error executing auth request: %v\n", err.Error())
 		}
+
+		log.Println(resp.Location())
 	}
 }
