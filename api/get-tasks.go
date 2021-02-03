@@ -20,7 +20,6 @@ import (
 	"github.com/jbonadiman/finance-bot/entities"
 	"github.com/jbonadiman/finance-bot/environment"
 	"github.com/jbonadiman/finance-bot/models"
-	"github.com/jbonadiman/finance-bot/workers"
 )
 
 const (
@@ -48,13 +47,31 @@ func init() {
 
 	token, err := redisDB.GetTokenFromCache()
 	if err != nil {
-		log.Fatalf("could not assemble token: %v\n", err.Error())
+		log.Fatalf("could not retrieve token: %v\n", err.Error())
 	}
 
-	httpClient = workers.MSConfig.Client(context.Background(), token)
+	if token != nil {
+		httpClient = msConfig.Client(context.Background(), token)
+	} else {
+		log.Println("token is not on cache yet")
+	}
 }
 
-func FetchTasks(w http.ResponseWriter, r *http.Request) {
+func FetchTasks(w http.ResponseWriter, _ *http.Request) {
+	if httpClient == nil {
+		token, err := redisDB.GetTokenFromCache()
+		if err != nil {
+			log.Printf("could not retrieve token: %v\n", err.Error())
+			app_msgs.SendInternalError(&w, err.Error())
+		}
+
+		if token != nil {
+			httpClient = msConfig.Client(context.Background(), token)
+		} else {
+			log.Println("could not assemble token")
+			app_msgs.SendBadRequest(&w, app_msgs.NotAuthenticated())
+		}
+	}
 
 	tasks, err := getTasks()
 	if err != nil {

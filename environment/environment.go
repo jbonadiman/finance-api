@@ -18,9 +18,9 @@ var (
 )
 
 var (
-	LambdaHost string
-	LambdaPassword  string
-	LambdaPort      string
+	LambdaHost     string
+	LambdaPassword string
+	LambdaPort     string
 )
 
 var (
@@ -30,7 +30,7 @@ var (
 )
 
 var (
-	TaskListID string
+	TaskListID       string
 	AuthCronDuration time.Duration
 )
 
@@ -59,72 +59,65 @@ func init() {
 func loadLambdaStoreVars() {
 	var err error
 
-	doOnce.Do(func() {
-		log.Println("loading lambda store environment variables...")
+	log.Println("loading lambda store environment variables...")
 
-		LambdaHost, err = loadVar("LAMBDA_HOST")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+	LambdaHost, err = loadVar("LAMBDA_HOST")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
-		LambdaPassword, err = loadVar("LAMBDA_SECRET")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+	LambdaPassword, err = loadVar("LAMBDA_SECRET")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
-		LambdaPort, err = loadVar("LAMBDA_PORT")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-	})
+	LambdaPort, err = loadVar("LAMBDA_PORT")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }
 
 func loadMicrosoftVars() {
 	var err error
 
-	doOnce.Do(func() {
-		log.Println("loading microsoft environment variables...")
+	log.Println("loading microsoft environment variables...")
 
-		MSClientID, err = loadVar("MS_CLIENT_ID")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+	MSClientID, err = loadVar("MS_CLIENT_ID")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
-		MSClientSecret, err = loadVar("MS_CLIENT_SECRET")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+	MSClientSecret, err = loadVar("MS_CLIENT_SECRET")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
-		MSRedirectURL, err = loadVar("MS_REDIRECT")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-	})
+	MSRedirectURL, err = loadVar("MS_REDIRECT")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }
 
 func loadMongoDBVars() {
 	var err error
 
-	doOnce.Do(func() {
-		log.Println("loading mongodb atlas environment variables...")
+	log.Println("loading mongodb atlas environment variables...")
 
-		MongoHost, err = loadVar("MONGO_HOST")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+	MongoHost, err = loadVar("MONGO_HOST")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
-		MongoPassword, err = loadVar("MONGO_SECRET")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+	MongoPassword, err = loadVar("MONGO_SECRET")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
-		MongoUser, err = loadVar("MONGO_USER")
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-	})
+	MongoUser, err = loadVar("MONGO_USER")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }
-
 
 func loadVar(key string) (string, error) {
 	variable := os.Getenv(key)

@@ -6,12 +6,37 @@ import (
 	"net/http"
 	"sync"
 
+	"golang.org/x/oauth2"
+
 	"github.com/jbonadiman/finance-bot/app_msgs"
 	redisDB "github.com/jbonadiman/finance-bot/databases/redis"
-	"github.com/jbonadiman/finance-bot/workers"
+	"github.com/jbonadiman/finance-bot/environment"
+)
+
+const (
+	msAuthURL  = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
+	msTokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+	tasksScope = "offline_access tasks.readwrite"
+)
+
+var (
+	msConfig *oauth2.Config
 )
 
 func init() {
+	consumerEndpoint := oauth2.Endpoint{}
+
+	consumerEndpoint.AuthStyle = oauth2.AuthStyleInHeader
+	consumerEndpoint.AuthURL = msAuthURL
+	consumerEndpoint.TokenURL = msTokenURL
+
+	msConfig = &oauth2.Config{
+		RedirectURL:  environment.MSRedirectURL,
+		ClientID:     environment.MSClientID,
+		ClientSecret: environment.MSClientSecret,
+		Scopes:       []string{ tasksScope },
+		Endpoint:     consumerEndpoint,
+	}
 	// go workers.RequestAuthPage()
 }
 
@@ -35,7 +60,7 @@ func StoreToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Println("retrieving token using authorize code...")
-	token, err := workers.MSConfig.Exchange(ctx, authorizationCode)
+	token, err := msConfig.Exchange(ctx, authorizationCode)
 	if err != nil {
 		app_msgs.SendInternalError(&w, app_msgs.ErrorAuthenticating(err.Error()))
 	}
