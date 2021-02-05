@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -77,7 +78,7 @@ func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 	if err != nil {
 		log.Println("an error occurred while retrieving tasks...")
 		app_msgs.SendInternalError(&w, err.Error())
-		return
+ 			return
 	}
 
 	if len(*tasks) == 0 {
@@ -127,6 +128,17 @@ func getTasks() (*[]models.Task, error) {
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		var bodyBytes []byte
+
+		bodyBytes, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(string(bodyBytes))
+	}
 
 	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {
