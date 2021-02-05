@@ -99,10 +99,12 @@ func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	err = deleteTasks(tasks)
-	if err != nil {
-		app_msgs.SendInternalError(&w, app_msgs.ErrorDeletingTasks(err.Error()))
-		return
+	if environment.ReadOnlyTasks == "true" {
+		err = deleteTasks(tasks)
+		if err != nil {
+			app_msgs.SendInternalError(&w, app_msgs.ErrorDeletingTasks(err.Error()))
+			return
+		}
 	}
 
 	w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))

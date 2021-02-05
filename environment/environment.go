@@ -17,7 +17,9 @@ const (
 	MongoHostKey             = "MONGO_HOST"
 	MongoUserKey             = "MONGO_USER"
 	MongoPasswordKey         = "MONGO_SECRET"
-	TaskListIDKey            = "TASK_LIST_ID"
+
+	TaskListIDKey = "TASK_LIST_ID"
+	ReadOnlyTasksKey = "READONLY_TASKS"
 )
 
 var (
@@ -39,7 +41,8 @@ var (
 )
 
 var (
-	TaskListID string
+	TaskListID    string
+	ReadOnlyTasks string
 )
 
 func init() {
@@ -63,6 +66,8 @@ func init() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+
+	ReadOnlyTasks, _ = loadVar(ReadOnlyTasksKey)
 }
 
 func loadMicrosoftVars() []string {
