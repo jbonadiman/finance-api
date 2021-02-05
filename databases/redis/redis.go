@@ -14,9 +14,12 @@ import (
 	"github.com/jbonadiman/finances-api/utils"
 )
 
-type DB utils.Connection
+type DB struct {
+	utils.Connection
+	client *redis.Client
+}
 
-var redisDB *DB
+var redisSingleton *DB
 
 func (db *DB) GetClient() (*redis.Client, error) {
 	connectionStr := db.GetConnectionString()
@@ -39,16 +42,24 @@ func (db *DB) GetConnectionString() string {
 }
 
 func GetDB() *DB {
-	if redisDB == nil {
-		redisDB = &DB{
-			Host:     environment.LambdaHost,
-			Password: environment.LambdaPassword,
-			User:     "",
-			Port:     environment.LambdaPort,
+	
+
+	if redisSingleton == nil {
+		redisSingleton = &DB{
+			Connection: utils.Connection{
+				Host:     environment.LambdaHost,
+				Password: environment.LambdaPassword,
+				Port:     environment.LambdaPort},
+			client:     nil,
 		}
+
+		redisSingleton.ConnectionString = redisSingleton.GetConnectionString()
+
+		connectionStr := db.GetConnectionString()
+
 	}
 
-	return redisDB
+	return redisSingleton
 }
 
 func GetTokenFromCache() (*oauth2.Token, error) {
@@ -124,4 +135,13 @@ func GetTokenFromCache() (*oauth2.Token, error) {
 	}
 
 	return nil, nil
+}
+
+func getValue(wg *sync.WaitGroup, key string) {
+	tokenType = redisClient.Get(
+		ctx,
+		"token:TokenType",
+	).Val()
+
+	wg.Done()
 }
