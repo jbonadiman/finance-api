@@ -8,9 +8,9 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/jbonadiman/finance-bot/app_msgs"
-	redisDB "github.com/jbonadiman/finance-bot/databases/redis"
-	"github.com/jbonadiman/finance-bot/environment"
+	"github.com/jbonadiman/finances-api/app_msgs"
+	redisDB "github.com/jbonadiman/finances-api/databases/redis"
+	"github.com/jbonadiman/finances-api/environment"
 )
 
 const (

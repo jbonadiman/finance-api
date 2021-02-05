@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/jbonadiman/finance-bot/api"
+	"github.com/jbonadiman/finances-api/api"
 )
 
 func main() {

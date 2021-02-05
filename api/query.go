@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/jbonadiman/finance-bot/app_msgs"
-	"github.com/jbonadiman/finance-bot/databases/mongodb"
+	"github.com/jbonadiman/finances-api/app_msgs"
+	"github.com/jbonadiman/finances-api/databases/mongodb"
 )
 
 func init() {

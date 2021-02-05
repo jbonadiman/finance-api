@@ -1,1 +1,1 @@
-personal-finance-bot
+personal-finances-api

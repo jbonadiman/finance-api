@@ -10,8 +10,8 @@ import (
 	"github.com/go-redis/redis/v8"
 	"golang.org/x/oauth2"
 
-	"github.com/jbonadiman/finance-bot/environment"
-	"github.com/jbonadiman/finance-bot/utils"
+	"github.com/jbonadiman/finances-api/environment"
+	"github.com/jbonadiman/finances-api/utils"
 )
 
 type DB utils.Connection
