@@ -18,7 +18,7 @@ const (
 	MongoUserKey             = "MONGO_USER"
 	MongoPasswordKey         = "MONGO_SECRET"
 
-	TaskListIDKey = "TASK_LIST_ID"
+	TaskListIDKey    = "TASK_LIST_ID"
 	ReadOnlyTasksKey = "READONLY_TASKS"
 )
 
