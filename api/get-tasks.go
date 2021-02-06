@@ -31,6 +31,8 @@ const (
 
 var (
 	mongoClient *mongodb.DB
+	redisClient *redisDB.DB
+
 	httpClient *http.Client
 )
 
@@ -43,10 +45,15 @@ func init() {
 
 	mongoClient, err = mongodb.GetDB()
 	if err != nil {
-		log.Println(err.Error())
+		log.Fatalf(err.Error())
 	}
 
-	token, err := redisDB.GetTokenFromCache()
+	redisClient, err = redisDB.GetDB()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	token, err := redisClient.GetTokenFromCache()
 	if err != nil {
 		log.Fatalf("could not retrieve token: %v\n", err.Error())
 	}
@@ -60,7 +67,7 @@ func init() {
 
 func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 	if httpClient == nil {
-		token, err := redisDB.GetTokenFromCache()
+		token, err := redisClient.GetTokenFromCache()
 		if err != nil {
 			log.Printf("could not retrieve token: %v\n", err.Error())
 			app_msgs.SendInternalError(&w, err.Error())

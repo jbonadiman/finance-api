@@ -19,20 +19,33 @@ type DB struct {
 	client *redis.Client
 }
 
-var redisSingleton *DB
+const TimeOut = 1 * time.Second
 
-func (db *DB) GetClient() (*redis.Client, error) {
-	connectionStr := db.GetConnectionString()
+var singleton *DB
 
-	opt, err := redis.ParseURL(connectionStr)
-	if err != nil {
-		return nil, err
+func GetDB() (*DB, error) {
+	if singleton == nil {
+		singleton = &DB{
+			Connection: utils.Connection{
+				Host:     environment.LambdaHost,
+				Password: environment.LambdaPassword,
+				Port:     environment.LambdaPort},
+			client:     nil,
+		}
+		singleton.ConnectionString = formatConnectionString(singleton)
+
+		opt, err := redis.ParseURL(singleton.ConnectionString)
+		if err != nil {
+			return nil, err
+		}
+
+		singleton.client = redis.NewClient(opt)
 	}
 
-	return redis.NewClient(opt), nil
+	return singleton, nil
 }
 
-func (db *DB) GetConnectionString() string {
+func formatConnectionString(db *DB) string {
 	return fmt.Sprintf(
 		"redis://%v:%v@%v:%v",
 		db.User,
@@ -41,36 +54,8 @@ func (db *DB) GetConnectionString() string {
 		db.Port)
 }
 
-func GetDB() *DB {
-	
-
-	if redisSingleton == nil {
-		redisSingleton = &DB{
-			Connection: utils.Connection{
-				Host:     environment.LambdaHost,
-				Password: environment.LambdaPassword,
-				Port:     environment.LambdaPort},
-			client:     nil,
-		}
-
-		redisSingleton.ConnectionString = redisSingleton.GetConnectionString()
-
-		connectionStr := db.GetConnectionString()
-
-	}
-
-	return redisSingleton
-}
-
-func GetTokenFromCache() (*oauth2.Token, error) {
+func (db *DB) GetTokenFromCache() (*oauth2.Token, error) {
 	log.Println("attempting to retrieve token from cache...")
-
-	redisClient, err := GetDB().GetClient()
-	if err != nil {
-		return nil, err
-	}
-
-	ctx := context.Background()
 	wg := sync.WaitGroup{}
 
 	var (
@@ -83,32 +68,9 @@ func GetTokenFromCache() (*oauth2.Token, error) {
 	log.Println("getting token from cache...")
 
 	wg.Add(3)
-	go func() {
-		accessToken = redisClient.Get(
-			ctx,
-			"token:AccessToken",
-		).Val()
-
-		wg.Done()
-	}()
-
-	go func() {
-		refreshToken = redisClient.Get(
-			ctx,
-			"token:RefreshToken",
-		).Val()
-
-		wg.Done()
-	}()
-
-	go func() {
-		tokenType = redisClient.Get(
-			ctx,
-			"token:TokenType",
-		).Val()
-
-		wg.Done()
-	}()
+	go db.getValue(&wg, "token:AccessToken", &accessToken)
+	go db.getValue(&wg, "token:RefreshToken", &refreshToken)
+	go db.getValue(&wg, "token:TokenType", &tokenType)
 
 	// go func() {
 	// 	expiry = redisClient.Get(
@@ -137,11 +99,23 @@ func GetTokenFromCache() (*oauth2.Token, error) {
 	return nil, nil
 }
 
-func getValue(wg *sync.WaitGroup, key string) {
-	tokenType = redisClient.Get(
-		ctx,
-		"token:TokenType",
-	).Val()
+func (db *DB) getValue(wg *sync.WaitGroup, key string, variable *string) {
+	defer wg.Done()
 
-	wg.Done()
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
+	*variable = db.client.Get(ctx, key).Val()
+}
+
+func (db *DB) SetValue(key string, value interface{}) {
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
+	db.client.Set(
+		ctx,
+		key,
+		value,
+		0,
+	)
 }
