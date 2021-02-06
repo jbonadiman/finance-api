@@ -121,7 +121,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if environment.ReadOnlyTasks == "true" {
+	if environment.ReadOnlyTasks != "true" {
 		err = deleteTasks(tasks)
 		if err != nil {
 			app_msgs.SendInternalError(&w, app_msgs.ErrorDeletingTasks(err.Error()))

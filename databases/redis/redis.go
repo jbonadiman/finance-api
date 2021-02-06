@@ -19,7 +19,7 @@ type DB struct {
 	client *redis.Client
 }
 
-const TimeOut = 1 * time.Second
+const TimeOut = 3 * time.Second
 
 var singleton *DB
 
@@ -61,36 +61,33 @@ func (db *DB) GetTokenFromCache() (*oauth2.Token, error) {
 	var (
 		accessToken,
 		refreshToken,
-		// expiry,
+		expiry,
 		tokenType string
 	)
 
 	log.Println("getting token from cache...")
 
-	wg.Add(3)
+	wg.Add(4)
 	go db.getValue(&wg, "token:AccessToken", &accessToken)
 	go db.getValue(&wg, "token:RefreshToken", &refreshToken)
 	go db.getValue(&wg, "token:TokenType", &tokenType)
-
-	// go func() {
-	// 	expiry = redisClient.Get(
-	// 		ctx,
-	// 		"token:Expiry",
-	// 	).Val()
-	//
-	// 	wg.Done()
-	// }()
+	go db.getValue(&wg, "token:Expiry", &expiry)
 
 	wg.Wait()
 
-	if accessToken != "" && tokenType != "" && refreshToken != "" {
+	if accessToken != "" && tokenType != "" && refreshToken != "" && expiry != "" {
 		log.Println("retrieved token from cache successfully")
+
+		parsedExpiry, err := time.Parse(time.RFC3339Nano, expiry)
+		if err != nil {
+			return nil, err
+		}
 
 		token := oauth2.Token{
 			AccessToken:  accessToken,
 			TokenType:    tokenType,
 			RefreshToken: refreshToken,
-			Expiry:       time.Time{},
+			Expiry:       parsedExpiry,
 		}
 
 		return &token, nil
