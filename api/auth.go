@@ -37,7 +37,6 @@ func init() {
 		Scopes:       []string{ tasksScope },
 		Endpoint:     consumerEndpoint,
 	}
-	// go workers.RequestAuthPage()
 }
 
 func StoreToken(w http.ResponseWriter, r *http.Request) {
@@ -57,12 +56,14 @@ func StoreToken(w http.ResponseWriter, r *http.Request) {
 	redisDB, err := redisDB.GetDB()
 	if err != nil {
 		app_msgs.SendInternalError(&w, app_msgs.RedisConnectionError(err.Error()))
+		return
 	}
 
 	log.Println("retrieving token using authorize code...")
 	token, err := msConfig.Exchange(ctx, authorizationCode)
 	if err != nil {
 		app_msgs.SendInternalError(&w, app_msgs.ErrorAuthenticating(err.Error()))
+		return
 	}
 
 	wg := sync.WaitGroup{}
