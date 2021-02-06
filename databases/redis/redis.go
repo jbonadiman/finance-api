@@ -108,6 +108,13 @@ func (db *DB) getValue(wg *sync.WaitGroup, key string, variable *string) {
 	*variable = db.client.Get(ctx, key).Val()
 }
 
+func (db *DB) CompareKeys(apiKey string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
+	return db.client.Get(ctx, "apiKey").Val() == apiKey
+}
+
 func (db *DB) SetValue(key string, value interface{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 	defer cancel()
