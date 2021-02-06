@@ -26,11 +26,11 @@ type DB struct {
 
 const TimeOut = 5 * time.Second
 
-var mongoSingleton *DB
+var singleton *DB
 
 func GetDB() (*DB, error) {
-	if mongoSingleton == nil {
-		mongoSingleton = &DB{
+	if singleton == nil {
+		singleton = &DB{
 			Connection: utils.Connection{
 				Host:             environment.MongoHost,
 				Password:         environment.MongoPassword,
@@ -42,39 +42,39 @@ func GetDB() (*DB, error) {
 			client:         nil,
 		}
 
-		mongoSingleton.ConnectionString = fmt.Sprintf(
+		singleton.ConnectionString = fmt.Sprintf(
 			"mongodb+srv://%v:%v@%v/finances?retryWrites=true&w=majority",
-			mongoSingleton.User,
-			mongoSingleton.Password,
-			mongoSingleton.Host,
+			singleton.User,
+			singleton.Password,
+			singleton.Host,
 		)
 
 		client, err := mongo.NewClient(
-			options.Client().ApplyURI(mongoSingleton.ConnectionString),
+			options.Client().ApplyURI(singleton.ConnectionString),
 		)
 
 		if err != nil {
 			return nil, err
 		}
 
-		mongoSingleton.client = client
+		singleton.client = client
 
 		ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 		defer cancel()
 
-		err = mongoSingleton.client.Connect(ctx)
+		err = singleton.client.Connect(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		mongoSingleton.IsDisconnected = false
+		singleton.IsDisconnected = false
 
-		financesDb := mongoSingleton.client.Database("finances")
-		mongoSingleton.transactionsCollection = financesDb.Collection("transactions")
-		mongoSingleton.subcategoriesCollection = financesDb.Collection("subcategories")
+		financesDb := singleton.client.Database("finances")
+		singleton.transactionsCollection = financesDb.Collection("transactions")
+		singleton.subcategoriesCollection = financesDb.Collection("subcategories")
 	}
 
-	return mongoSingleton, nil
+	return singleton, nil
 }
 
 func (db *DB) StoreTransactions(transactions ...entities.Transaction) (
