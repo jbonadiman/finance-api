@@ -43,11 +43,13 @@ type taskList struct {
 func init() {
 	var err error
 
+	log.Println("connecting to mongoDB...")
 	mongoClient, err = mongodb.GetDB()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
+	log.Println("connecting to redis...")
 	redisClient, err = redisDB.GetDB()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -65,7 +67,16 @@ func init() {
 	}
 }
 
-func FetchTasks(w http.ResponseWriter, _ *http.Request) {
+func FetchTasks(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Query().Get("api_key")
+
+	if !redisClient.CompareKeys(key) {
+		log.Printf("not authenticated call with key: %v\n", key)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte())
+		return
+	}
+
 	if httpClient == nil {
 		token, err := redisClient.GetTokenFromCache()
 		if err != nil {
