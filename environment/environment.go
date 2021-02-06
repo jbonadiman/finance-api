@@ -5,11 +5,22 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
-	"time"
 )
 
-var doOnce sync.Once
+const (
+	LambdaHostKey            = "LAMBDA_HOST"
+	LambdaSecretKey          = "LAMBDA_SECRET"
+	LambdaPortKey            = "LAMBDA_PORT"
+	MicrosoftClientIDKey     = "MS_CLIENT_ID"
+	MicrosoftClientSecretKey = "MS_CLIENT_SECRET"
+	MicrosoftRedirectURLKey  = "MS_REDIRECT"
+	MongoHostKey             = "MONGO_HOST"
+	MongoUserKey             = "MONGO_USER"
+	MongoPasswordKey         = "MONGO_SECRET"
+
+	TaskListIDKey    = "TASK_LIST_ID"
+	ReadOnlyTasksKey = "READONLY_TASKS"
+)
 
 var (
 	MSClientID     string
@@ -30,100 +41,113 @@ var (
 )
 
 var (
-	TaskListID       string
-	AuthCronDuration time.Duration
+	TaskListID    string
+	ReadOnlyTasks string
 )
 
 func init() {
-	loadMicrosoftVars()
-	loadLambdaStoreVars()
-	loadMongoDBVars()
+	unsetVarList := make([]string, 0)
+
+	unsetVarList = append(unsetVarList, loadMicrosoftVars()...)
+	unsetVarList = append(unsetVarList, loadLambdaStoreVars()...)
+	unsetVarList = append(unsetVarList, loadMongoDBVars()...)
+
+	if len(unsetVarList) > 0 {
+		for _, err := range unsetVarList {
+			log.Println(err)
+		}
+
+		os.Exit(1)
+	}
 
 	var err error
-	TaskListID, err = loadVar("TASK_LIST_ID")
+
+	TaskListID, err = loadVar(TaskListIDKey)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
-	authDuration, err := loadVar("AUTH_DURATION")
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	AuthCronDuration, err = time.ParseDuration(authDuration)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	ReadOnlyTasks, _ = loadVar(ReadOnlyTasksKey)
 }
 
-func loadLambdaStoreVars() {
-	var err error
-
-	log.Println("loading lambda store environment variables...")
-
-	LambdaHost, err = loadVar("LAMBDA_HOST")
-	if err != nil {
-		log.Fatal(err.Error())
+func loadMicrosoftVars() []string {
+	microsoftVars := map[string]string{
+		MicrosoftClientIDKey:     "",
+		MicrosoftClientSecretKey: "",
+		MicrosoftRedirectURLKey:  "",
 	}
 
-	LambdaPassword, err = loadVar("LAMBDA_SECRET")
-	if err != nil {
-		log.Fatal(err.Error())
+	unsetList := loadVarGroup(&microsoftVars, "microsoft")
+	if len(unsetList) > 0 {
+		return unsetList
 	}
 
-	LambdaPort, err = loadVar("LAMBDA_PORT")
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	MSClientID = microsoftVars[MicrosoftClientIDKey]
+	MSClientSecret = microsoftVars[MicrosoftClientSecretKey]
+	MSRedirectURL = microsoftVars[MicrosoftRedirectURLKey]
+
+	return nil
 }
 
-func loadMicrosoftVars() {
-	var err error
-
-	log.Println("loading microsoft environment variables...")
-
-	MSClientID, err = loadVar("MS_CLIENT_ID")
-	if err != nil {
-		log.Fatal(err.Error())
+func loadLambdaStoreVars() []string {
+	lambdaStoreVars := map[string]string{
+		LambdaHostKey:   "",
+		LambdaSecretKey: "",
+		LambdaPortKey:   "",
 	}
 
-	MSClientSecret, err = loadVar("MS_CLIENT_SECRET")
-	if err != nil {
-		log.Fatal(err.Error())
+	unsetList := loadVarGroup(&lambdaStoreVars, "lambda store")
+	if len(unsetList) > 0 {
+		return unsetList
 	}
 
-	MSRedirectURL, err = loadVar("MS_REDIRECT")
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	LambdaHost = lambdaStoreVars[LambdaHostKey]
+	LambdaPassword = lambdaStoreVars[LambdaSecretKey]
+	LambdaPort = lambdaStoreVars[LambdaPortKey]
+
+	return nil
 }
 
-func loadMongoDBVars() {
-	var err error
-
-	log.Println("loading mongodb atlas environment variables...")
-
-	MongoHost, err = loadVar("MONGO_HOST")
-	if err != nil {
-		log.Fatal(err.Error())
+func loadMongoDBVars() []string {
+	mongoVars := map[string]string{
+		MongoHostKey:     "",
+		MongoUserKey:     "",
+		MongoPasswordKey: "",
 	}
 
-	MongoPassword, err = loadVar("MONGO_SECRET")
-	if err != nil {
-		log.Fatal(err.Error())
+	unsetList := loadVarGroup(&mongoVars, "mongo atlas")
+	if len(unsetList) > 0 {
+		return unsetList
 	}
 
-	MongoUser, err = loadVar("MONGO_USER")
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	MongoHost = mongoVars[MongoHostKey]
+	MongoUser = mongoVars[MongoUserKey]
+	MongoPassword = mongoVars[MongoPasswordKey]
+
+	return nil
 }
 
 func loadVar(key string) (string, error) {
 	variable := os.Getenv(key)
 	if variable == "" {
-		return "", errors.New(fmt.Sprintf("%q environment variable not set!", key))
+		return "", errors.New(fmt.Sprintf("%q environment variable not set", key))
 	}
 
 	return variable, nil
+}
+
+func loadVarGroup(envKeys *map[string]string, groupName string) []string {
+	localSlice := make([]string, 0)
+
+	log.Printf("loading %v environment variables...\n", groupName)
+	for key, _ := range *envKeys {
+		v, err := loadVar(key)
+		if err != nil {
+			localSlice = append(localSlice, err.Error())
+		} else {
+			(*envKeys)[key] = v
+		}
+	}
+
+	return localSlice
 }

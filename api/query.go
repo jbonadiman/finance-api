@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/jbonadiman/finance-bot/app_msgs"
-	"github.com/jbonadiman/finance-bot/databases/mongodb"
+	"github.com/jbonadiman/finances-api/app_msgs"
+	"github.com/jbonadiman/finances-api/databases/mongodb"
 )
 
 func init() {
@@ -19,6 +19,16 @@ func init() {
 }
 
 func QueryTransactions(w http.ResponseWriter, r *http.Request) {
+	user, password, ok := r.BasicAuth()
+
+	if !ok || !redisClient.CompareAuthentication(user, password) {
+		log.Printf("non-authenticated call with user:password: %q\n",
+			user+":"+password)
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte("Unauthorized request"))
+		return
+	}
+
 	queryParams := r.URL.Query()
 
 	if subQuery := queryParams.Get("subcategory"); subQuery != "" {
@@ -34,6 +44,6 @@ func QueryTransactions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.Write(transactionsAsJson)
+		_, _ = w.Write(transactionsAsJson)
 	}
 }

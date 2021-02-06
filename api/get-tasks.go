@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -14,12 +15,12 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/jbonadiman/finance-bot/app_msgs"
-	"github.com/jbonadiman/finance-bot/databases/mongodb"
-	redisDB "github.com/jbonadiman/finance-bot/databases/redis"
-	"github.com/jbonadiman/finance-bot/entities"
-	"github.com/jbonadiman/finance-bot/environment"
-	"github.com/jbonadiman/finance-bot/models"
+	"github.com/jbonadiman/finances-api/app_msgs"
+	"github.com/jbonadiman/finances-api/databases/mongodb"
+	redisDB "github.com/jbonadiman/finances-api/databases/redis"
+	"github.com/jbonadiman/finances-api/entities"
+	"github.com/jbonadiman/finances-api/environment"
+	"github.com/jbonadiman/finances-api/models"
 )
 
 const (
@@ -30,6 +31,8 @@ const (
 
 var (
 	mongoClient *mongodb.DB
+	redisClient *redisDB.DB
+
 	httpClient *http.Client
 )
 
@@ -40,12 +43,19 @@ type taskList struct {
 func init() {
 	var err error
 
+	log.Println("connecting to mongoDB...")
 	mongoClient, err = mongodb.GetDB()
 	if err != nil {
-		log.Println(err.Error())
+		log.Fatalf(err.Error())
 	}
 
-	token, err := redisDB.GetTokenFromCache()
+	log.Println("connecting to redis...")
+	redisClient, err = redisDB.GetDB()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	token, err := redisClient.GetTokenFromCache()
 	if err != nil {
 		log.Fatalf("could not retrieve token: %v\n", err.Error())
 	}
@@ -57,12 +67,23 @@ func init() {
 	}
 }
 
-func FetchTasks(w http.ResponseWriter, _ *http.Request) {
+func FetchTasks(w http.ResponseWriter, r *http.Request) {
+	user, password, ok := r.BasicAuth()
+
+	if !ok || !redisClient.CompareAuthentication(user, password) {
+		log.Printf("non-authenticated call with user:password: %q\n",
+			user+":"+password)
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte("Unauthorized request"))
+		return
+	}
+
 	if httpClient == nil {
-		token, err := redisDB.GetTokenFromCache()
+		token, err := redisClient.GetTokenFromCache()
 		if err != nil {
 			log.Printf("could not retrieve token: %v\n", err.Error())
 			app_msgs.SendInternalError(&w, err.Error())
+			return
 		}
 
 		if token != nil {
@@ -70,6 +91,7 @@ func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 		} else {
 			log.Println("could not assemble token")
 			app_msgs.SendBadRequest(&w, app_msgs.NotAuthenticated())
+			return
 		}
 	}
 
@@ -77,11 +99,11 @@ func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 	if err != nil {
 		log.Println("an error occurred while retrieving tasks...")
 		app_msgs.SendInternalError(&w, err.Error())
-		return
+ 			return
 	}
 
 	if len(*tasks) == 0 {
-		w.Write([]byte("could not find any tasks to be stored"))
+		_, _ = w.Write([]byte("could not find any tasks to be stored"))
 		return
 	}
 
@@ -99,13 +121,15 @@ func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	err = deleteTasks(tasks)
-	if err != nil {
-		app_msgs.SendInternalError(&w, app_msgs.ErrorDeletingTasks(err.Error()))
-		return
+	if environment.ReadOnlyTasks == "true" {
+		err = deleteTasks(tasks)
+		if err != nil {
+			app_msgs.SendInternalError(&w, app_msgs.ErrorDeletingTasks(err.Error()))
+			return
+		}
 	}
 
-	w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
+	_, _ = w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
 }
 
 func getTasks() (*[]models.Task, error) {
@@ -125,6 +149,17 @@ func getTasks() (*[]models.Task, error) {
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		var bodyBytes []byte
+
+		bodyBytes, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(string(bodyBytes))
+	}
 
 	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {

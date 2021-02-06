@@ -11,9 +11,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/jbonadiman/finance-bot/entities"
-	"github.com/jbonadiman/finance-bot/environment"
-	"github.com/jbonadiman/finance-bot/utils"
+	"github.com/jbonadiman/finances-api/entities"
+	"github.com/jbonadiman/finances-api/environment"
+	"github.com/jbonadiman/finances-api/utils"
 )
 
 type DB struct {
@@ -26,11 +26,11 @@ type DB struct {
 
 const TimeOut = 5 * time.Second
 
-var mongoDB *DB
+var singleton *DB
 
 func GetDB() (*DB, error) {
-	if mongoDB == nil {
-		mongoDB = &DB{
+	if singleton == nil {
+		singleton = &DB{
 			Connection: utils.Connection{
 				Host:             environment.MongoHost,
 				Password:         environment.MongoPassword,
@@ -42,39 +42,39 @@ func GetDB() (*DB, error) {
 			client:         nil,
 		}
 
-		mongoDB.ConnectionString = fmt.Sprintf(
+		singleton.ConnectionString = fmt.Sprintf(
 			"mongodb+srv://%v:%v@%v/finances?retryWrites=true&w=majority",
-			mongoDB.User,
-			mongoDB.Password,
-			mongoDB.Host,
+			singleton.User,
+			singleton.Password,
+			singleton.Host,
 		)
 
 		client, err := mongo.NewClient(
-			options.Client().ApplyURI(mongoDB.ConnectionString),
+			options.Client().ApplyURI(singleton.ConnectionString),
 		)
 
 		if err != nil {
 			return nil, err
 		}
 
-		mongoDB.client = client
+		singleton.client = client
 
 		ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 		defer cancel()
 
-		err = mongoDB.client.Connect(ctx)
+		err = singleton.client.Connect(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		mongoDB.IsDisconnected = false
+		singleton.IsDisconnected = false
 
-		financesDb := mongoDB.client.Database("finances")
-		mongoDB.transactionsCollection = financesDb.Collection("transactions")
-		mongoDB.subcategoriesCollection = financesDb.Collection("subcategories")
+		financesDb := singleton.client.Database("finances")
+		singleton.transactionsCollection = financesDb.Collection("transactions")
+		singleton.subcategoriesCollection = financesDb.Collection("subcategories")
 	}
 
-	return mongoDB, nil
+	return singleton, nil
 }
 
 func (db *DB) StoreTransactions(transactions ...entities.Transaction) (

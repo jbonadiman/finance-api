@@ -17,12 +17,12 @@ package workers
 // 	"go.mongodb.org/mongo-driver/bson/primitive"
 // 	"golang.org/x/oauth2"
 //
-// 	"github.com/jbonadiman/finance-bot/app_msgs"
-// 	"github.com/jbonadiman/finance-bot/databases/mongodb"
-// 	redisDB "github.com/jbonadiman/finance-bot/databases/redis"
-// 	"github.com/jbonadiman/finance-bot/entities"
-// 	"github.com/jbonadiman/finance-bot/models"
-// 	"github.com/jbonadiman/finance-bot/utils"
+// 	"github.com/jbonadiman/finances-api/app_msgs"
+// 	"github.com/jbonadiman/finances-api/databases/mongodb"
+// 	redisDB "github.com/jbonadiman/finances-api/databases/redis"
+// 	"github.com/jbonadiman/finances-api/entities"
+// 	"github.com/jbonadiman/finances-api/models"
+// 	"github.com/jbonadiman/finances-api/utils"
 // )
 //
 // const (
