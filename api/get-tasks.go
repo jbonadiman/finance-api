@@ -71,9 +71,9 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Query().Get("api_key")
 
 	if !redisClient.CompareKeys(key) {
-		log.Printf("not authenticated call with key: %v\n", key)
+		log.Printf("non-authenticated call with key: %v\n", key)
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte())
+		_, _ = w.Write([]byte("Unauthorized request"))
 		return
 	}
 
@@ -102,7 +102,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(*tasks) == 0 {
-		w.Write([]byte("could not find any tasks to be stored"))
+		_, _ = w.Write([]byte("could not find any tasks to be stored"))
 		return
 	}
 
@@ -128,7 +128,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
+	_, _ = w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
 }
 
 func getTasks() (*[]models.Task, error) {
