@@ -21,7 +21,7 @@ func init() {
 func QueryTransactions(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 
-	key := r.URL.Query().Get("api_key")
+	key := r.Header.Get("api_key")
 
 	if !redisClient.CompareKeys(key) {
 		log.Printf("non-authenticated call with key: %v\n", key)
