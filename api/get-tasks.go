@@ -71,6 +71,7 @@ func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 		if err != nil {
 			log.Printf("could not retrieve token: %v\n", err.Error())
 			app_msgs.SendInternalError(&w, err.Error())
+			return
 		}
 
 		if token != nil {
@@ -78,6 +79,7 @@ func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 		} else {
 			log.Println("could not assemble token")
 			app_msgs.SendBadRequest(&w, app_msgs.NotAuthenticated())
+			return
 		}
 	}
 
