@@ -19,8 +19,6 @@ func init() {
 }
 
 func QueryTransactions(w http.ResponseWriter, r *http.Request) {
-	queryParams := r.URL.Query()
-
 	key := r.Header.Get("api_key")
 
 	if !redisClient.CompareKeys(key) {
@@ -29,6 +27,8 @@ func QueryTransactions(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("Unauthorized request"))
 		return
 	}
+
+	queryParams := r.URL.Query()
 
 	if subQuery := queryParams.Get("subcategory"); subQuery != "" {
 		transactions, err := mongoClient.GetTransactionBySubcategory(subQuery)
