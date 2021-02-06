@@ -29,8 +29,9 @@ func GetDB() (*DB, error) {
 			Connection: utils.Connection{
 				Host:     environment.LambdaHost,
 				Password: environment.LambdaPassword,
-				Port:     environment.LambdaPort},
-			client:     nil,
+				Port:     environment.LambdaPort,
+			},
+			client: nil,
 		}
 		singleton.ConnectionString = formatConnectionString(singleton)
 
@@ -51,43 +52,60 @@ func formatConnectionString(db *DB) string {
 		db.User,
 		db.Password,
 		db.Host,
-		db.Port)
+		db.Port,
+	)
 }
 
-func (db *DB) GetTokenFromCache() (*oauth2.Token, error) {
+func (db *DB) GetToken() (*oauth2.Token, error) {
 	log.Println("attempting to retrieve token from cache...")
 	wg := sync.WaitGroup{}
 
 	var (
 		accessToken,
 		refreshToken,
-		expiry,
 		tokenType string
 	)
+
+	var expiry time.Time
 
 	log.Println("getting token from cache...")
 
 	wg.Add(4)
-	go db.getValue(&wg, "token:AccessToken", &accessToken)
-	go db.getValue(&wg, "token:RefreshToken", &refreshToken)
-	go db.getValue(&wg, "token:TokenType", &tokenType)
-	go db.getValue(&wg, "token:Expiry", &expiry)
+	go func() {
+		defer wg.Done()
+		accessToken = db.GetValue("token:AccessToken").Val()
+	}()
+
+	go func() {
+		defer wg.Done()
+		refreshToken = db.GetValue("token:RefreshToken").Val()
+	}()
+
+	go func() {
+		defer wg.Done()
+		tokenType = db.GetValue("token:TokenType").Val()
+	}()
+
+	go func() {
+		defer wg.Done()
+		var err error
+
+		expiry, err = db.GetValue("token:Expiry").Time()
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+	}()
 
 	wg.Wait()
 
-	if accessToken != "" && tokenType != "" && refreshToken != "" && expiry != "" {
+	if accessToken != "" && tokenType != "" && refreshToken != "" && !expiry.IsZero() {
 		log.Println("retrieved token from cache successfully")
-
-		parsedExpiry, err := time.Parse(time.RFC3339Nano, expiry)
-		if err != nil {
-			return nil, err
-		}
 
 		token := oauth2.Token{
 			AccessToken:  accessToken,
 			TokenType:    tokenType,
 			RefreshToken: refreshToken,
-			Expiry:       parsedExpiry,
+			Expiry:       expiry,
 		}
 
 		return &token, nil
@@ -96,13 +114,32 @@ func (db *DB) GetTokenFromCache() (*oauth2.Token, error) {
 	return nil, nil
 }
 
-func (db *DB) getValue(wg *sync.WaitGroup, key string, variable *string) {
-	defer wg.Done()
+func (db *DB) StoreToken(token *oauth2.Token) {
+	log.Println("storing token in cache...")
+	wg := sync.WaitGroup{}
 
-	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
-	defer cancel()
+	wg.Add(4)
+	go func() {
+		defer wg.Done()
+		db.SetValue("token:AccessToken", token.AccessToken)
+	}()
 
-	*variable = db.client.Get(ctx, key).Val()
+	go func() {
+		defer wg.Done()
+		db.SetValue("token:RefreshToken", token.RefreshToken)
+	}()
+
+	go func() {
+		defer wg.Done()
+		db.SetValue("token:TokenType", token.TokenType)
+	}()
+
+	go func() {
+		defer wg.Done()
+		db.SetValue("token:Expiry", token.Expiry)
+	}()
+
+	wg.Wait()
 }
 
 func (db *DB) CompareAuthentication(username, password string) bool {
@@ -110,7 +147,14 @@ func (db *DB) CompareAuthentication(username, password string) bool {
 	defer cancel()
 
 	secret := db.client.Get(ctx, "auth:Secret").Val()
-	return secret != "" && secret == username + ":" + password
+	return secret != "" && secret == username+":"+password
+}
+
+func (db *DB) GetValue(key string) *redis.StringCmd {
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
+	return db.client.Get(ctx, key)
 }
 
 func (db *DB) SetValue(key string, value interface{}) {

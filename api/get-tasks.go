@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/oauth2"
 
 	"github.com/jbonadiman/finances-api/app_msgs"
 	"github.com/jbonadiman/finances-api/databases/mongodb"
@@ -34,6 +35,9 @@ var (
 	redisClient *redisDB.DB
 
 	httpClient *http.Client
+
+	token       *oauth2.Token
+	tokenSource oauth2.TokenSource
 )
 
 type taskList struct {
@@ -55,51 +59,37 @@ func init() {
 		log.Fatalf(err.Error())
 	}
 
-	token, err := redisClient.GetTokenFromCache()
+	token, err = redisClient.GetToken()
 	if err != nil {
 		log.Fatalf("could not retrieve token: %v\n", err.Error())
 	}
 
-	if token != nil {
-		httpClient = msConfig.Client(context.Background(), token)
-	} else {
-		log.Println("token is not on cache yet")
-	}
+	ctx := context.Background()
+
+	tokenSource = msConfig.TokenSource(ctx, token)
+	httpClient = msConfig.Client(ctx, token)
 }
 
 func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	user, password, ok := r.BasicAuth()
 
 	if !ok || !redisClient.CompareAuthentication(user, password) {
-		log.Printf("non-authenticated call with user:password: %q\n",
-			user+":"+password)
+		log.Printf(
+			"non-authenticated call with user:password: %q\n",
+			user+":"+password,
+		)
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte("Unauthorized request"))
 		return
 	}
 
-	if httpClient == nil {
-		token, err := redisClient.GetTokenFromCache()
-		if err != nil {
-			log.Printf("could not retrieve token: %v\n", err.Error())
-			app_msgs.SendInternalError(&w, err.Error())
-			return
-		}
-
-		if token != nil {
-			httpClient = msConfig.Client(context.Background(), token)
-		} else {
-			log.Println("could not assemble token")
-			app_msgs.SendBadRequest(&w, app_msgs.NotAuthenticated())
-			return
-		}
-	}
+	storeRefreshedToken()
 
 	tasks, err := getTasks()
 	if err != nil {
 		log.Println("an error occurred while retrieving tasks...")
 		app_msgs.SendInternalError(&w, err.Error())
- 			return
+		return
 	}
 
 	if len(*tasks) == 0 {
@@ -124,12 +114,50 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	if environment.ReadOnlyTasks != "true" {
 		err = deleteTasks(tasks)
 		if err != nil {
-			app_msgs.SendInternalError(&w, app_msgs.ErrorDeletingTasks(err.Error()))
+			app_msgs.SendInternalError(
+				&w,
+				app_msgs.ErrorDeletingTasks(err.Error()),
+			)
 			return
 		}
 	}
 
-	_, _ = w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
+	_, _ = w.Write(
+		[]byte(fmt.Sprintf(
+			"stored %v transactions successfully!",
+			count,
+		)),
+	)
+}
+
+func storeRefreshedToken() {
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if newToken.AccessToken != token.AccessToken {
+		wg := sync.WaitGroup{}
+
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+
+			ctx := context.Background()
+			token = newToken
+			tokenSource = msConfig.TokenSource(ctx, token)
+
+			httpClient = msConfig.Client(ctx, newToken)
+		}()
+
+		go func() {
+			defer wg.Done()
+			redisClient.StoreToken(newToken)
+		}()
+
+		wg.Wait()
+		log.Println("token refreshed successfully")
+	}
 }
 
 func getTasks() (*[]models.Task, error) {
@@ -219,7 +247,12 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 	total := len(*tasks)
 
 	if parsed != total {
-		return &transactions, errors.New(app_msgs.NotAllTasksParsed(parsed, total))
+		return &transactions, errors.New(
+			app_msgs.NotAllTasksParsed(
+				parsed,
+				total,
+			),
+		)
 	}
 
 	return &transactions, nil
@@ -237,7 +270,12 @@ func parseSubcategory(sub string) (string, error) {
 func storeTransaction(transactions *[]entities.Transaction) (int, error) {
 	count, err := mongoClient.StoreTransactions(*transactions...)
 	if err != nil {
-		log.Println(app_msgs.NotAllTransactionsStored(count, len(*transactions)))
+		log.Println(
+			app_msgs.NotAllTransactionsStored(
+				count,
+				len(*transactions),
+			),
+		)
 		return count, err
 	}
 

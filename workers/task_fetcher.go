@@ -55,7 +55,7 @@ package workers
 // }
 //
 // func FetchTasks(w http.ResponseWriter, r *http.Request) {
-// 	token, err := redisDB.GetTokenFromCache()
+// 	token, err := redisDB.GetToken()
 // 	if err != nil {
 // 		app_msgs.SendInternalError(&w, err.Error())
 // 		return
