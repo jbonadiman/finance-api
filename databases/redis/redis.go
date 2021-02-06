@@ -112,7 +112,8 @@ func (db *DB) CompareKeys(apiKey string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 	defer cancel()
 
-	return db.client.Get(ctx, "apiKey").Val() == apiKey
+	secret := db.client.Get(ctx, "auth:Secret").Val()
+	return secret != "" && secret == apiKey
 }
 
 func (db *DB) SetValue(key string, value interface{}) {

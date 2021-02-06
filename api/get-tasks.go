@@ -71,7 +71,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	key := r.Header.Get("api_key")
 
 	if !redisClient.CompareKeys(key) {
-		log.Printf("non-authenticated call with key: %v\n", key)
+		log.Printf("non-authenticated call with key: %q\n", key)
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte("Unauthorized request"))
 		return
