@@ -37,7 +37,6 @@ func init() {
 		Scopes:       []string{ tasksScope },
 		Endpoint:     consumerEndpoint,
 	}
-	// go workers.RequestAuthPage()
 }
 
 func StoreToken(w http.ResponseWriter, r *http.Request) {
@@ -54,15 +53,17 @@ func StoreToken(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	log.Println("connecting to redis...")
-	redisClient, err := redisDB.GetDB().GetClient()
+	redisDB, err := redisDB.GetDB()
 	if err != nil {
 		app_msgs.SendInternalError(&w, app_msgs.RedisConnectionError(err.Error()))
+		return
 	}
 
 	log.Println("retrieving token using authorize code...")
 	token, err := msConfig.Exchange(ctx, authorizationCode)
 	if err != nil {
 		app_msgs.SendInternalError(&w, app_msgs.ErrorAuthenticating(err.Error()))
+		return
 	}
 
 	wg := sync.WaitGroup{}
@@ -71,36 +72,18 @@ func StoreToken(w http.ResponseWriter, r *http.Request) {
 
 	wg.Add(3)
 	go func() {
-		redisClient.Set(
-			ctx,
-			"token:AccessToken",
-			token.AccessToken,
-			0,
-		)
-
-		wg.Done()
+		defer wg.Done()
+		redisDB.SetValue("token:AccessToken", token.AccessToken)
 	}()
 
 	go func() {
-		redisClient.Set(
-			ctx,
-			"token:RefreshToken",
-			token.RefreshToken,
-			0,
-		)
-
-		wg.Done()
+		defer wg.Done()
+		redisDB.SetValue("token:RefreshToken", token.RefreshToken)
 	}()
 
 	go func() {
-		redisClient.Set(
-			ctx,
-			"token:TokenType",
-			token.TokenType,
-			0,
-		)
-
-		wg.Done()
+		defer wg.Done()
+		redisDB.SetValue("token:TokenType", token.TokenType)
 	}()
 
 	// go func() {
