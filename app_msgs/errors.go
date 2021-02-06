@@ -16,5 +16,5 @@ func SendBadRequest(w *http.ResponseWriter, msg string) {
 }
 
 func sendError(w *http.ResponseWriter, msg string, httpCode int) {
-	http.Error(*w, string(msg), httpCode)
+	http.Error(*w, msg, httpCode)
 }

@@ -5,11 +5,11 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"golang.org/x/oauth2"
 
 	"github.com/jbonadiman/finances-api/app_msgs"
-	redisDB "github.com/jbonadiman/finances-api/databases/redis"
 	"github.com/jbonadiman/finances-api/environment"
 )
 
@@ -17,6 +17,8 @@ const (
 	msAuthURL  = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
 	msTokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 	tasksScope = "offline_access tasks.readwrite"
+
+	TimeOut = 10 * time.Second
 )
 
 var (
@@ -34,7 +36,7 @@ func init() {
 		RedirectURL:  environment.MSRedirectURL,
 		ClientID:     environment.MSClientID,
 		ClientSecret: environment.MSClientSecret,
-		Scopes:       []string{ tasksScope },
+		Scopes:       []string{tasksScope},
 		Endpoint:     consumerEndpoint,
 	}
 }
@@ -50,19 +52,16 @@ func StoreToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
 
-	log.Println("connecting to redis...")
-	redisDB, err := redisDB.GetDB()
-	if err != nil {
-		app_msgs.SendInternalError(&w, app_msgs.RedisConnectionError(err.Error()))
-		return
-	}
-
-	log.Println("retrieving token using authorize code...")
+	log.Println("retrieving token using authorization code...")
 	token, err := msConfig.Exchange(ctx, authorizationCode)
 	if err != nil {
-		app_msgs.SendInternalError(&w, app_msgs.ErrorAuthenticating(err.Error()))
+		app_msgs.SendInternalError(
+			&w,
+			app_msgs.ErrorAuthenticating(err.Error()),
+		)
 		return
 	}
 
@@ -70,32 +69,26 @@ func StoreToken(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("storing token in cache...")
 
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		defer wg.Done()
-		redisDB.SetValue("token:AccessToken", token.AccessToken)
+		redisClient.SetValue("token:AccessToken", token.AccessToken)
 	}()
 
 	go func() {
 		defer wg.Done()
-		redisDB.SetValue("token:RefreshToken", token.RefreshToken)
+		redisClient.SetValue("token:RefreshToken", token.RefreshToken)
 	}()
 
 	go func() {
 		defer wg.Done()
-		redisDB.SetValue("token:TokenType", token.TokenType)
+		redisClient.SetValue("token:TokenType", token.TokenType)
 	}()
 
-	// go func() {
-	// 	redisClient.Set(
-	// 		ctx,
-	// 		"token:Expiry",
-	// 		token.Expiry,
-	// 		0,
-	// 	)
-	//
-	// 	wg.Done()
-	// }()
+	go func() {
+		defer wg.Done()
+		redisClient.SetValue("token:Expiry", token.Expiry)
+	}()
 
 	wg.Wait()
 

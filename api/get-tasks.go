@@ -43,11 +43,13 @@ type taskList struct {
 func init() {
 	var err error
 
+	log.Println("connecting to mongoDB...")
 	mongoClient, err = mongodb.GetDB()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
+	log.Println("connecting to redis...")
 	redisClient, err = redisDB.GetDB()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -65,7 +67,17 @@ func init() {
 	}
 }
 
-func FetchTasks(w http.ResponseWriter, _ *http.Request) {
+func FetchTasks(w http.ResponseWriter, r *http.Request) {
+	user, password, ok := r.BasicAuth()
+
+	if !ok || !redisClient.CompareAuthentication(user, password) {
+		log.Printf("non-authenticated call with user:password: %q\n",
+			user+":"+password)
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte("Unauthorized request"))
+		return
+	}
+
 	if httpClient == nil {
 		token, err := redisClient.GetTokenFromCache()
 		if err != nil {
@@ -91,7 +103,7 @@ func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	if len(*tasks) == 0 {
-		w.Write([]byte("could not find any tasks to be stored"))
+		_, _ = w.Write([]byte("could not find any tasks to be stored"))
 		return
 	}
 
@@ -117,7 +129,7 @@ func FetchTasks(w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 
-	w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
+	_, _ = w.Write([]byte(fmt.Sprintf("stored %v transactions successfully!", count)))
 }
 
 func getTasks() (*[]models.Task, error) {
