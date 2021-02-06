@@ -108,12 +108,12 @@ func (db *DB) getValue(wg *sync.WaitGroup, key string, variable *string) {
 	*variable = db.client.Get(ctx, key).Val()
 }
 
-func (db *DB) CompareKeys(apiKey string) bool {
+func (db *DB) CompareAuthentication(username, password string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 	defer cancel()
 
 	secret := db.client.Get(ctx, "auth:Secret").Val()
-	return secret != "" && secret == apiKey
+	return secret != "" && secret == username + ":" + password
 }
 
 func (db *DB) SetValue(key string, value interface{}) {
