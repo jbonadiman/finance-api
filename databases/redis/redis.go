@@ -39,7 +39,16 @@ func GetDB() (*DB, error) {
 			return nil, err
 		}
 
-		singleton.client = redis.NewClient(opt)
+		client := redis.NewClient(opt)
+		ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+		defer cancel()
+
+		err = client.Ping(ctx).Err()
+		if err != nil {
+			return nil, err
+		}
+
+		singleton.client = client
 	}
 
 	return singleton, nil
@@ -112,6 +121,6 @@ func (db *DB) CompareAuthentication(username, password string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 	defer cancel()
 
-	secret := db.client.Get(ctx, "auth:Secret").String()
+	secret := db.client.Get(ctx, "auth:Secret").Val()
 	return secret != "" && secret == username+":"+password
 }
