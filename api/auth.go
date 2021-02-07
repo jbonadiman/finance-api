@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -18,7 +17,7 @@ const (
 	msTokenURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 	tasksScope = "offline_access tasks.readwrite"
 
-	TimeOut = 10 * time.Second
+	TimeOut = 5 * time.Second
 )
 
 var (
@@ -42,8 +41,8 @@ func init() {
 }
 
 func StoreToken(w http.ResponseWriter, r *http.Request) {
+	var err error
 	query := r.URL.Query()
-
 	authorizationCode := query.Get("code")
 
 	log.Println("parsing authorize code from url query...")
@@ -56,7 +55,7 @@ func StoreToken(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	log.Println("retrieving token using authorization code...")
-	token, err := msConfig.Exchange(ctx, authorizationCode)
+	token, err = msConfig.Exchange(ctx, authorizationCode)
 	if err != nil {
 		app_msgs.SendInternalError(
 			&w,
@@ -65,33 +64,9 @@ func StoreToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wg := sync.WaitGroup{}
-
 	log.Println("storing token in cache...")
+	redisClient.StoreToken(token)
 
-	wg.Add(4)
-	go func() {
-		defer wg.Done()
-		redisClient.SetValue("token:AccessToken", token.AccessToken)
-	}()
-
-	go func() {
-		defer wg.Done()
-		redisClient.SetValue("token:RefreshToken", token.RefreshToken)
-	}()
-
-	go func() {
-		defer wg.Done()
-		redisClient.SetValue("token:TokenType", token.TokenType)
-	}()
-
-	go func() {
-		defer wg.Done()
-		redisClient.SetValue("token:Expiry", token.Expiry)
-	}()
-
-	wg.Wait()
-
-	w.Write([]byte("Token stored successfully!"))
+	_, _ = w.Write([]byte("Token stored successfully!"))
 	return
 }
