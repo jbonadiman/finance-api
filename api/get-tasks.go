@@ -143,7 +143,9 @@ func storeRefreshedToken() {
 		go func() {
 			defer wg.Done()
 
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+			defer cancel()
+
 			token = newToken
 			tokenSource = msConfig.TokenSource(ctx, token)
 
@@ -165,13 +167,8 @@ func getTasks() (*[]models.Task, error) {
 
 	tasksUrl := fmt.Sprintf(TodoTasksUrl, environment.TaskListID)
 
-	req, err := http.NewRequest("GET", tasksUrl, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	log.Println("listing tasks...")
-	resp, err := httpClient.Do(req)
+	resp, err := httpClient.Get(tasksUrl)
 	if err != nil {
 		return nil, err
 	}

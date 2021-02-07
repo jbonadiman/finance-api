@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -57,46 +56,29 @@ func formatConnectionString(db *DB) string {
 }
 
 func (db *DB) GetToken() (*oauth2.Token, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
 	log.Println("attempting to retrieve token from cache...")
-	wg := sync.WaitGroup{}
 
-	var (
-		accessToken,
-		refreshToken,
-		tokenType string
-	)
+	values, err := db.client.MGet(ctx,
+		"token:AccessToken",
+		"token:RefreshToken",
+		"token:TokenType",
+		"token:Expiry").Result()
 
-	var expiry time.Time
+	if err != nil {
+		return nil, err
+	}
 
-	log.Println("getting token from cache...")
+	accessToken := fmt.Sprint(values[0])
+	refreshToken := fmt.Sprint(values[1])
+	tokenType := fmt.Sprint(values[2])
+	expiry, err := time.Parse(time.RFC3339Nano, fmt.Sprint(values[3]))
 
-	wg.Add(4)
-	go func() {
-		defer wg.Done()
-		accessToken = db.GetValue("token:AccessToken").Val()
-	}()
-
-	go func() {
-		defer wg.Done()
-		refreshToken = db.GetValue("token:RefreshToken").Val()
-	}()
-
-	go func() {
-		defer wg.Done()
-		tokenType = db.GetValue("token:TokenType").Val()
-	}()
-
-	go func() {
-		defer wg.Done()
-		var err error
-
-		expiry, err = db.GetValue("token:Expiry").Time()
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-	}()
-
-	wg.Wait()
+	if err != nil {
+		return nil, err
+	}
 
 	if accessToken != "" && tokenType != "" && refreshToken != "" && !expiry.IsZero() {
 		log.Println("retrieved token from cache successfully")
@@ -115,56 +97,21 @@ func (db *DB) GetToken() (*oauth2.Token, error) {
 }
 
 func (db *DB) StoreToken(token *oauth2.Token) {
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
 	log.Println("storing token in cache...")
-	wg := sync.WaitGroup{}
-
-	wg.Add(4)
-	go func() {
-		defer wg.Done()
-		db.SetValue("token:AccessToken", token.AccessToken)
-	}()
-
-	go func() {
-		defer wg.Done()
-		db.SetValue("token:RefreshToken", token.RefreshToken)
-	}()
-
-	go func() {
-		defer wg.Done()
-		db.SetValue("token:TokenType", token.TokenType)
-	}()
-
-	go func() {
-		defer wg.Done()
-		db.SetValue("token:Expiry", token.Expiry)
-	}()
-
-	wg.Wait()
+	db.client.MSet(ctx,
+		"token:AccessToken", token.AccessToken,
+		"token:RefreshToken", token.RefreshToken,
+		"token:TokenType", token.TokenType,
+		"token:Expiry", token.Expiry)
 }
 
 func (db *DB) CompareAuthentication(username, password string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
 	defer cancel()
 
-	secret := db.client.Get(ctx, "auth:Secret").Val()
+	secret := db.client.Get(ctx, "auth:Secret").String()
 	return secret != "" && secret == username+":"+password
-}
-
-func (db *DB) GetValue(key string) *redis.StringCmd {
-	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
-	defer cancel()
-
-	return db.client.Get(ctx, key)
-}
-
-func (db *DB) SetValue(key string, value interface{}) {
-	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
-	defer cancel()
-
-	db.client.Set(
-		ctx,
-		key,
-		value,
-		0,
-	)
 }
