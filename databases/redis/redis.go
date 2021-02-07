@@ -47,7 +47,7 @@ func GetDB() (*DB, error) {
 
 func formatConnectionString(db *DB) string {
 	return fmt.Sprintf(
-		"redis://%v:%v@%v:%v",
+		"rediss://%v:%v@%v:%v",
 		db.User,
 		db.Password,
 		db.Host,
