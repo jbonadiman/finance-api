@@ -124,3 +124,18 @@ func (db *DB) CompareAuthentication(username, password string) bool {
 	secret := db.client.Get(ctx, "auth:Secret").Val()
 	return secret != "" && secret == username+":"+password
 }
+
+func (db *DB) ParseSubcategory(subcategory string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
+	var parsedSubcategory, err = db.client.Get(
+		ctx, fmt.Sprintf("subcategory:%v", subcategory)).Result()
+
+	if err != nil {
+		log.Printf("error parsing subcategory %q\n", subcategory)
+		return "", err
+	}
+
+	return parsedSubcategory, nil
+}

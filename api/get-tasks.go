@@ -104,6 +104,13 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(*tasks) > len(*transactions) {
+		log.Println("could not parse all tasks")
+		app_msgs.SendBadRequest(&w, "could not parse all tasks")
+		return
+
+	}
+
 	count, err := storeTransaction(transactions)
 	if err != nil {
 		log.Println("an error occurred while storing transactions...")
@@ -212,15 +219,19 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 				64,
 			)
 
-			if err != nil {
+			if err != nil || cost <= 0 {
 				return
 			}
 
 			description := strings.TrimSpace(values[1])
 			unparsedCategory := strings.TrimSpace(values[2])
 
-			category, err := parseSubcategory(unparsedCategory)
-			if err != nil {
+			if description == "" {
+				return
+			}
+
+			subcategory, err := redisClient.ParseSubcategory(unparsedCategory)
+			if err != nil || subcategory == "" {
 				return
 			}
 
@@ -232,7 +243,7 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 				OriginalTaskID: t.Id,
 				Description:    description,
 				Cost:           cost,
-				Subcategory:    category,
+				Subcategory:    subcategory,
 			}
 
 		}(i, task)
@@ -253,15 +264,6 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 	}
 
 	return &transactions, nil
-}
-
-func parseSubcategory(sub string) (string, error) {
-	subcategory, err := mongoClient.ParseCategory(sub)
-	if err != nil {
-		return "", err
-	}
-
-	return (*subcategory).Name, nil
 }
 
 func storeTransaction(transactions *[]entities.Transaction) (int, error) {

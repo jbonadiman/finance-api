@@ -106,34 +106,6 @@ func (db *DB) StoreTransactions(transactions ...entities.Transaction) (
 	return len(result.InsertedIDs), nil
 }
 
-func (db *DB) ParseCategory(unparsedCategory string) (
-	*entities.Subcategory,
-	error,
-) {
-	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
-	defer cancel()
-
-	if db.IsDisconnected {
-		err := db.client.Connect(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		db.IsDisconnected = false
-	}
-
-	filter := bson.D{{"keywords", unparsedCategory}}
-
-	sub := entities.Subcategory{}
-
-	err := db.subcategoriesCollection.FindOne(ctx, filter).Decode(&sub)
-	if err != nil {
-		return nil, err
-	}
-
-	return &sub, nil
-}
-
 func (db *DB) GetTransactionBySubcategory(subRegex string) (
 	*[]entities.Transaction,
 	error,
