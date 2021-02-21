@@ -230,8 +230,8 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 				return
 			}
 
-			category, err := parseSubcategory(unparsedCategory)
-			if err != nil || category == "" {
+			subcategory, err := redisClient.ParseSubcategory(unparsedCategory)
+			if err != nil || subcategory == "" {
 				return
 			}
 
@@ -243,7 +243,7 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 				OriginalTaskID: t.Id,
 				Description:    description,
 				Cost:           cost,
-				Subcategory:    category,
+				Subcategory:    subcategory,
 			}
 
 		}(i, task)
@@ -264,15 +264,6 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 	}
 
 	return &transactions, nil
-}
-
-func parseSubcategory(sub string) (string, error) {
-	subcategory, err := mongoClient.ParseCategory(sub)
-	if err != nil {
-		return "", err
-	}
-
-	return (*subcategory).Name, nil
 }
 
 func storeTransaction(transactions *[]entities.Transaction) (int, error) {
