@@ -16,12 +16,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/oauth2"
 
-	"github.com/jbonadiman/finances-api/app_msgs"
-	"github.com/jbonadiman/finances-api/databases/mongodb"
-	redisDB "github.com/jbonadiman/finances-api/databases/redis"
-	"github.com/jbonadiman/finances-api/entities"
-	"github.com/jbonadiman/finances-api/environment"
-	"github.com/jbonadiman/finances-api/models"
+	"github.com/jbonadiman/finances-api/internal/app_msgs"
+	"github.com/jbonadiman/finances-api/internal/databases/mongodb"
+	redisDB "github.com/jbonadiman/finances-api/internal/databases/redis"
+	"github.com/jbonadiman/finances-api/internal/entities"
+	"github.com/jbonadiman/finances-api/internal/environment"
+	"github.com/jbonadiman/finances-api/internal/models"
 )
 
 const (
