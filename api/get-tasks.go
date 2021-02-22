@@ -98,21 +98,14 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	transactions, errList := parseTasks(tasks)
-	if len(*errList) > 0 {
+	if len(errList) > 0 {
 		log.Println("could not parse all tasks:")
-		for _, e := range *errList {
+		for _, e := range errList {
 			log.Println(e.Error())
 		}
 
 		app_msgs.SendBadRequest(&w, "could not parse all tasks")
 		return
-	}
-
-	if len(*tasks) > len(*transactions) {
-		log.Println("could not parse all tasks")
-		app_msgs.SendBadRequest(&w, "could not parse all tasks")
-		return
-
 	}
 
 	count, err := storeTransaction(transactions)
@@ -202,12 +195,12 @@ func getTasks() (*[]models.Task, error) {
 		return nil, err
 	}
 
-	log.Printf("found %v tasks!", len(tasks.Value))
+	log.Printf("found %v tasks!\n", len(tasks.Value))
 
 	return &tasks.Value, nil
 }
 
-func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, *[]error) {
+func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 	transactions := make([]entities.Transaction, len(*tasks))
 	errorList := make([]error, 0)
 
@@ -265,11 +258,8 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, *[]error) {
 
 	wg.Wait()
 
-	parsed := len(transactions)
-	total := len(*tasks)
-
-	if parsed != total {
-		return &transactions, &errorList
+	if len(errorList) > 0 {
+		return &transactions, errorList
 	}
 
 	return &transactions, nil
