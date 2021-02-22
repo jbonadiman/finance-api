@@ -8,8 +8,8 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/jbonadiman/finances-api/app_msgs"
-	"github.com/jbonadiman/finances-api/environment"
+	"github.com/jbonadiman/finances-api/internal/app_msgs"
+	"github.com/jbonadiman/finances-api/internal/environment"
 )
 
 const (

@@ -16,12 +16,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/oauth2"
 
-	"github.com/jbonadiman/finances-api/app_msgs"
-	"github.com/jbonadiman/finances-api/databases/mongodb"
-	redisDB "github.com/jbonadiman/finances-api/databases/redis"
-	"github.com/jbonadiman/finances-api/entities"
-	"github.com/jbonadiman/finances-api/environment"
-	"github.com/jbonadiman/finances-api/models"
+	"github.com/jbonadiman/finances-api/internal/app_msgs"
+	"github.com/jbonadiman/finances-api/internal/databases/mongodb"
+	redisDB "github.com/jbonadiman/finances-api/internal/databases/redis"
+	"github.com/jbonadiman/finances-api/internal/entities"
+	"github.com/jbonadiman/finances-api/internal/environment"
+	"github.com/jbonadiman/finances-api/internal/models"
 )
 
 const (
@@ -97,18 +97,15 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transactions, err := parseTasks(tasks)
-	if err != nil {
-		log.Println("an error occurred while parsing tasks...")
-		app_msgs.SendBadRequest(&w, err.Error())
-		return
-	}
+	transactions, errList := parseTasks(tasks)
+	if len(errList) > 0 {
+		log.Println("could not parse all tasks:")
+		for _, e := range errList {
+			log.Println(e.Error())
+		}
 
-	if len(*tasks) > len(*transactions) {
-		log.Println("could not parse all tasks")
 		app_msgs.SendBadRequest(&w, "could not parse all tasks")
 		return
-
 	}
 
 	count, err := storeTransaction(transactions)
@@ -198,13 +195,14 @@ func getTasks() (*[]models.Task, error) {
 		return nil, err
 	}
 
-	log.Printf("found %v tasks!", len(tasks.Value))
+	log.Printf("found %v tasks!\n", len(tasks.Value))
 
 	return &tasks.Value, nil
 }
 
-func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
+func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 	transactions := make([]entities.Transaction, len(*tasks))
+	errorList := make([]error, 0)
 
 	wg := sync.WaitGroup{}
 
@@ -220,6 +218,9 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 			)
 
 			if err != nil || cost <= 0 {
+				errorList = append(
+					errorList,
+					errors.New(fmt.Sprintf("cost value in task %q is invalid", t.Title)))
 				return
 			}
 
@@ -227,11 +228,17 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 			unparsedCategory := strings.TrimSpace(values[2])
 
 			if description == "" {
+				errorList = append(
+					errorList,
+					errors.New(fmt.Sprintf("task %q has no description", t.Title)))
 				return
 			}
 
 			subcategory, err := redisClient.ParseSubcategory(unparsedCategory)
 			if err != nil || subcategory == "" {
+				errorList = append(
+					errorList,
+					errors.New(fmt.Sprintf("could not parse subcategory of task %q", t.Title)))
 				return
 			}
 
@@ -251,16 +258,8 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, error) {
 
 	wg.Wait()
 
-	parsed := len(transactions)
-	total := len(*tasks)
-
-	if parsed != total {
-		return &transactions, errors.New(
-			app_msgs.NotAllTasksParsed(
-				parsed,
-				total,
-			),
-		)
+	if len(errorList) > 0 {
+		return &transactions, errorList
 	}
 
 	return &transactions, nil

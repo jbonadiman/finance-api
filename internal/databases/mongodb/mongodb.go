@@ -11,9 +11,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/jbonadiman/finances-api/entities"
-	"github.com/jbonadiman/finances-api/environment"
-	"github.com/jbonadiman/finances-api/utils"
+	"github.com/jbonadiman/finances-api/internal/entities"
+	"github.com/jbonadiman/finances-api/internal/environment"
+	"github.com/jbonadiman/finances-api/internal/utils"
 )
 
 type DB struct {

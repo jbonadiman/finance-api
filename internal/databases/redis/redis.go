@@ -9,8 +9,8 @@ import (
 	"github.com/go-redis/redis/v8"
 	"golang.org/x/oauth2"
 
-	"github.com/jbonadiman/finances-api/environment"
-	"github.com/jbonadiman/finances-api/utils"
+	"github.com/jbonadiman/finances-api/internal/environment"
+	"github.com/jbonadiman/finances-api/internal/utils"
 )
 
 type DB struct {
