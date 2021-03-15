@@ -7,6 +7,7 @@ import (
 
 	"github.com/jbonadiman/finances-api/internal/app_msgs"
 	"github.com/jbonadiman/finances-api/internal/databases/mongodb"
+	"github.com/jbonadiman/finances-api/internal/entities"
 )
 
 func init() {
@@ -31,19 +32,25 @@ func QueryTransactions(w http.ResponseWriter, r *http.Request) {
 
 	queryParams := r.URL.Query()
 
-	if subQuery := queryParams.Get("subcategory"); subQuery != "" {
-		transactions, err := mongoClient.GetTransactionBySubcategory(subQuery)
-		if err != nil {
-			app_msgs.SendInternalError(&w, err.Error())
-			return
-		}
+	var transactions *[]entities.Transaction
+	var err error
 
-		transactionsAsJson, err := json.Marshal(transactions)
-		if err != nil {
-			app_msgs.SendInternalError(&w, err.Error())
-			return
-		}
-
-		_, _ = w.Write(transactionsAsJson)
+	if allDataQuery := len(queryParams) == 0; allDataQuery {
+		transactions, err = mongoClient.GetAllTransactions()
+	} else if subcategoryQuery := queryParams.Get("subcategory"); subcategoryQuery != "" {
+		transactions, err = mongoClient.GetTransactionBySubcategory(subcategoryQuery)
 	}
+
+	if err != nil {
+		app_msgs.SendInternalError(&w, err.Error())
+		return
+	}
+
+	transactionsAsJson, err := json.Marshal(transactions)
+	if err != nil {
+		app_msgs.SendInternalError(&w, err.Error())
+		return
+	}
+
+	_, _ = w.Write(transactionsAsJson)
 }

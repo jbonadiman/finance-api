@@ -106,6 +106,45 @@ func (db *DB) StoreTransactions(transactions ...entities.Transaction) (
 	return len(result.InsertedIDs), nil
 }
 
+func (db *DB) GetAllTransactions() (*[]entities.Transaction, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), TimeOut)
+	defer cancel()
+
+	if db.IsDisconnected {
+		err := db.client.Connect(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		db.IsDisconnected = false
+	}
+
+	var transactions []entities.Transaction
+
+	cursor, err := db.transactionsCollection.Find(ctx, bson.D{})
+	if err != nil {
+		return nil, err
+	}
+
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		currTransaction := entities.Transaction{}
+		if err = cursor.Decode(&currTransaction); err != nil {
+			log.Println(err.Error())
+		}
+
+		transactions = append(transactions, currTransaction)
+	}
+
+	log.Printf(
+		"found %v transactions",
+		len(transactions),
+	)
+
+	return &transactions, nil
+}
+
 func (db *DB) GetTransactionBySubcategory(subRegex string) (
 	*[]entities.Transaction,
 	error,
