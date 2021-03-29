@@ -27,7 +27,7 @@ import (
 const (
 	TodoBaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
 	TodoTasksUrl      = TodoBaseUrl + "%v/tasks?$top=20"
-	TodoDeleteTaskUrl = TodoBaseUrl + "%v/tasks/%v"
+	TodoChangeTaskUrl = TodoBaseUrl + "%v/tasks/%v"
 )
 
 var (
@@ -278,8 +278,44 @@ func storeTransaction(transactions *[]entities.Transaction) (int, error) {
 	return count, nil
 }
 
+func markTasksAsCompleted(tasks *[]models.Task) error {
+	authReq, err := http.NewRequest(http.MethodPatch, "", nil)
+	if err != nil {
+		return err
+	}
+
+	for _, task := range *tasks {
+		urlTask, err := url.Parse(
+			fmt.Sprintf(
+				TodoChangeTaskUrl,
+				environment.TaskListID,
+				task.Id,
+			),
+		)
+
+		if err != nil {
+			return err
+		}
+
+		log.Printf("executing request to %q\n", urlTask)
+
+
+
+		json.NewEncoder().Encode(&tasks)
+
+		newReq := authReq
+		newReq.URL = urlTask
+		newReq.Body =
+
+		_, err = httpClient.Do(newReq)
+		if err != nil {
+			return err
+		}
+	}
+}
+
 func deleteTasks(tasks *[]models.Task) error {
-	authReq, err := http.NewRequest("DELETE", "", nil)
+	authReq, err := http.NewRequest(http.MethodDelete, "", nil)
 	if err != nil {
 		return err
 	}
@@ -287,7 +323,7 @@ func deleteTasks(tasks *[]models.Task) error {
 	for _, task := range *tasks {
 		urlDeleteTask, err := url.Parse(
 			fmt.Sprintf(
-				TodoDeleteTaskUrl,
+				TodoChangeTaskUrl,
 				environment.TaskListID,
 				task.Id,
 			),
