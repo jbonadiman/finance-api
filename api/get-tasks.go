@@ -26,7 +26,7 @@ import (
 
 const (
 	BaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
-	FetchTasksUrl = BaseUrl + "%v/tasks?$filter=status eq 'notStarted'&$top=1"
+	FetchTasksUrl = BaseUrl + "%v/tasks?$filter=status eq 'notStarted'&$top=20"
 	AlterTaskUrl  = BaseUrl + "%v/tasks/%v"
 )
 
@@ -176,7 +176,7 @@ func getNotStartedTasks() (*[]models.Task, error) {
 
 	if resp.StatusCode >= 400 {
 		log.Printf(
-			"unsuccessful request (status code %q). retrieving body...\n",
+			"unsuccessful request (status code '%v'). retrieving body...\n",
 			resp.StatusCode)
 
 		var bodyBytes []byte
