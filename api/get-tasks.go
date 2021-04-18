@@ -177,7 +177,8 @@ func getNotStartedTasks() (*[]models.Task, error) {
 	if resp.StatusCode >= 400 {
 		log.Printf(
 			"unsuccessful request (status code '%v'). retrieving body...\n",
-			resp.StatusCode)
+			resp.StatusCode,
+		)
 
 		var bodyBytes []byte
 
@@ -300,34 +301,48 @@ func storeTransaction(transactions *[]entities.Transaction) (int, error) {
 }
 
 func markTasksAsCompleted(tasks *[]models.Task) error {
-	authReq, err := http.NewRequest(http.MethodPatch, "", nil)
-	if err != nil {
-		return err
-	}
-
 	for _, task := range *tasks {
-		urlTask, err := url.Parse(
+		urlTask :=
 			fmt.Sprintf(
 				AlterTaskUrl,
 				environment.TaskListID,
 				task.Id,
-			),
-		)
-
-		if err != nil {
-			return err
-		}
+			)
 
 		log.Printf("executing request to %q\n", urlTask)
 
-		newReq := authReq
-		newReq.URL = urlTask
-		newReq.Body = ioutil.NopCloser(strings.NewReader("{\"status\": \"completed\"}"))
-
-		_, err = httpClient.Do(newReq)
+		newReq, err := http.NewRequest(
+			http.MethodPatch,
+			urlTask,
+			strings.NewReader("{\"status\":\"completed\"}"),
+		)
 		if err != nil {
 			return err
 		}
+
+		newReq.Header.Set("Content-Type", "application/json")
+		resp, err := httpClient.Do(newReq)
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode >= 400 {
+			log.Printf(
+				"unsuccessful request (status code '%v'). retrieving body...\n",
+				resp.StatusCode,
+			)
+
+			var bodyBytes []byte
+
+			bodyBytes, err = ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+
+			return errors.New(string(bodyBytes))
+		}
+
+		resp.Body.Close()
 	}
 
 	log.Printf(app_msgs.AllTasksCompleted(len(*tasks)))
