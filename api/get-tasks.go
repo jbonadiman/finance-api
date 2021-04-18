@@ -26,7 +26,7 @@ import (
 
 const (
 	BaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
-	FetchTasksUrl = BaseUrl + "%v/tasks?$filter=status eq 'notStarted'&$top=20"
+	FetchTasksUrl = BaseUrl + "%v/tasks?$filter=status%%20eq%%20'notStarted'&$top=20"
 	AlterTaskUrl  = BaseUrl + "%v/tasks/%v"
 )
 
