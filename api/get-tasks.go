@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	TodoBaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
-	TodoTasksUrl      = TodoBaseUrl + "%v/tasks?$top=20"
-	TodoChangeTaskUrl = TodoBaseUrl + "%v/tasks/%v"
+	BaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
+	FetchTasksUrl = BaseUrl + "%v/tasks?$filter=status eq 'notStarted'&$top=1"
+	AlterTaskUrl  = BaseUrl + "%v/tasks/%v"
 )
 
 var (
@@ -85,7 +85,7 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 
 	storeRefreshedToken()
 
-	tasks, err := getTasks()
+	tasks, err := getNotStartedTasks()
 	if err != nil {
 		log.Println("an error occurred while retrieving tasks...")
 		app_msgs.SendInternalError(&w, err.Error())
@@ -112,15 +112,13 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if environment.ReadOnlyTasks != "true" {
-		err = deleteTasks(tasks)
-		if err != nil {
-			app_msgs.SendInternalError(
-				&w,
-				app_msgs.ErrorDeletingTasks(err.Error()),
-			)
-			return
-		}
+	err = markTasksAsCompleted(tasks)
+	if err != nil {
+		app_msgs.SendInternalError(
+			&w,
+			app_msgs.ErrorCompletingTasks(err.Error()),
+		)
+		return
 	}
 
 	_, _ = w.Write(
@@ -163,10 +161,10 @@ func storeRefreshedToken() {
 	}
 }
 
-func getTasks() (*[]models.Task, error) {
+func getNotStartedTasks() (*[]models.Task, error) {
 	var tasks taskList
 
-	tasksUrl := fmt.Sprintf(TodoTasksUrl, environment.TaskListID)
+	tasksUrl := fmt.Sprintf(FetchTasksUrl, environment.TaskListID)
 
 	log.Println("listing tasks...")
 	resp, err := httpClient.Get(tasksUrl)
@@ -217,7 +215,13 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 			if err != nil || cost <= 0 {
 				errorList = append(
 					errorList,
-					errors.New(fmt.Sprintf("cost value in task %q is invalid", t.Title)))
+					errors.New(
+						fmt.Sprintf(
+							"cost value in task %q is invalid",
+							t.Title,
+						),
+					),
+				)
 				return
 			}
 
@@ -227,7 +231,13 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 			if description == "" {
 				errorList = append(
 					errorList,
-					errors.New(fmt.Sprintf("task %q has no description", t.Title)))
+					errors.New(
+						fmt.Sprintf(
+							"task %q has no description",
+							t.Title,
+						),
+					),
+				)
 				return
 			}
 
@@ -235,7 +245,13 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 			if err != nil || subcategory == "" {
 				errorList = append(
 					errorList,
-					errors.New(fmt.Sprintf("could not parse subcategory of task %q", t.Title)))
+					errors.New(
+						fmt.Sprintf(
+							"could not parse subcategory of task %q",
+							t.Title,
+						),
+					),
+				)
 				return
 			}
 
@@ -287,7 +303,7 @@ func markTasksAsCompleted(tasks *[]models.Task) error {
 	for _, task := range *tasks {
 		urlTask, err := url.Parse(
 			fmt.Sprintf(
-				TodoChangeTaskUrl,
+				AlterTaskUrl,
 				environment.TaskListID,
 				task.Id,
 			),
@@ -299,19 +315,18 @@ func markTasksAsCompleted(tasks *[]models.Task) error {
 
 		log.Printf("executing request to %q\n", urlTask)
 
-
-
-		json.NewEncoder().Encode(&tasks)
-
 		newReq := authReq
 		newReq.URL = urlTask
-		newReq.Body =
+		newReq.Body = ioutil.NopCloser(strings.NewReader("{\"status\": \"completed\"}"))
 
 		_, err = httpClient.Do(newReq)
 		if err != nil {
 			return err
 		}
 	}
+
+	log.Printf(app_msgs.AllTasksCompleted(len(*tasks)))
+	return nil
 }
 
 func deleteTasks(tasks *[]models.Task) error {
@@ -323,7 +338,7 @@ func deleteTasks(tasks *[]models.Task) error {
 	for _, task := range *tasks {
 		urlDeleteTask, err := url.Parse(
 			fmt.Sprintf(
-				TodoChangeTaskUrl,
+				AlterTaskUrl,
 				environment.TaskListID,
 				task.Id,
 			),
@@ -344,6 +359,6 @@ func deleteTasks(tasks *[]models.Task) error {
 		}
 	}
 
-	log.Printf(app_msgs.AllTasksDeleted(len(*tasks)))
+	log.Printf(app_msgs.AllTasksCompleted(len(*tasks)))
 	return nil
 }
