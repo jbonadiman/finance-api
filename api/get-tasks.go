@@ -166,7 +166,7 @@ func getNotStartedTasks() (*[]models.Task, error) {
 
 	tasksUrl := fmt.Sprintf(FetchTasksUrl, environment.TaskListID)
 
-	log.Println("listing tasks...")
+	log.Printf("listing tasks using url %q...\n", tasksUrl)
 	resp, err := httpClient.Get(tasksUrl)
 	if err != nil {
 		return nil, err
@@ -175,6 +175,10 @@ func getNotStartedTasks() (*[]models.Task, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
+		log.Printf(
+			"unsuccessful request (status code %q). retrieving body...\n",
+			resp.StatusCode)
+
 		var bodyBytes []byte
 
 		bodyBytes, err = ioutil.ReadAll(resp.Body)
@@ -185,6 +189,7 @@ func getNotStartedTasks() (*[]models.Task, error) {
 		return nil, errors.New(string(bodyBytes))
 	}
 
+	log.Println("successful request. parsing body to JSON...")
 	err = json.NewDecoder(resp.Body).Decode(&tasks)
 	if err != nil {
 		return nil, err
