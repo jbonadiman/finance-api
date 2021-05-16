@@ -211,10 +211,24 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 		wg.Add(1)
 		go func(index int, t models.Task) {
 			defer wg.Done()
-			values := strings.Split(t.Title, ";")
+			transactionParts := strings.Split(t.Title, ";")
+
+			if len(transactionParts) != 3 {
+				errorList = append(
+					errorList,
+					errors.New(
+						fmt.Sprintf(
+							"the task: %q is invalid. A transaction must be composed of three parts: one for the cost, one for the description and another for the category",
+							t.Title,
+						),
+					),
+				)
+				return
+			}
+
 
 			cost, err := strconv.ParseFloat(
-				strings.TrimSpace(values[0]),
+				strings.TrimSpace(transactionParts[0]),
 				64,
 			)
 
@@ -231,8 +245,8 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 				return
 			}
 
-			description := strings.TrimSpace(values[1])
-			unparsedCategory := strings.TrimSpace(values[2])
+			description := strings.TrimSpace(transactionParts[1])
+			unparsedCategory := strings.TrimSpace(transactionParts[2])
 
 			if description == "" {
 				errorList = append(
