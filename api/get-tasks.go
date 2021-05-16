@@ -99,10 +99,18 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 
 	transactions, errList := parseTasks(tasks)
 	if len(errList) > 0 {
-		log.Println("could not parse all tasks:")
+		var errorsAsString []string
+
 		for _, e := range errList {
-			log.Println(e.Error())
+			errorsAsString = append(errorsAsString, e.Error())
 		}
+
+		errorsMsg := strings.Join(errorsAsString, "\n")
+
+		log.Println("could not parse all tasks:")
+		log.Println(errorsMsg)
+		app_msgs.SendBadRequest(&w, errorsMsg)
+		return
 	}
 
 	count, err := storeTransaction(transactions)
