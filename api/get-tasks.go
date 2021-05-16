@@ -208,6 +208,15 @@ func getNotStartedTasks() (*[]models.Task, error) {
 	return &tasks.Value, nil
 }
 
+func markTaskAsInvalid(task *models.Task) error {
+	err := updateTask(task, fmt.Sprintf("{\"title\":\"⚠ %v\"}", task.Title))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 	transactions := make([]entities.Transaction, len(*tasks))
 	errorList := make([]error, 0)
@@ -230,6 +239,11 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 						),
 					),
 				)
+
+				err := markTaskAsInvalid(&t)
+				if err != nil {
+				}
+
 				return
 			}
 
@@ -249,6 +263,11 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 						),
 					),
 				)
+
+				err = markTaskAsInvalid(&t)
+				if err != nil {
+				}
+
 				return
 			}
 
@@ -265,6 +284,11 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 						),
 					),
 				)
+
+				err = markTaskAsInvalid(&t)
+				if err != nil {
+				}
+
 				return
 			}
 
@@ -279,6 +303,11 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 						),
 					),
 				)
+
+				err = markTaskAsInvalid(&t)
+				if err != nil {
+				}
+
 				return
 			}
 
@@ -321,49 +350,57 @@ func storeTransaction(transactions *[]entities.Transaction) (int, error) {
 	return count, nil
 }
 
+func updateTask(task *models.Task, payload string) error {
+	urlTask :=
+		fmt.Sprintf(
+			AlterTaskUrl,
+			environment.TaskListID,
+			task.Id,
+		)
+
+	log.Printf("executing request to %q\n", urlTask)
+
+	newReq, err := http.NewRequest(
+		http.MethodPatch,
+		urlTask,
+		strings.NewReader(payload),
+	)
+	if err != nil {
+		return err
+	}
+
+	newReq.Header.Set("Content-Type", "application/json")
+	resp, err := httpClient.Do(newReq)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode >= 400 {
+		log.Printf(
+			"unsuccessful request (status code '%v'). retrieving body...\n",
+			resp.StatusCode,
+		)
+
+		var bodyBytes []byte
+
+		bodyBytes, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(string(bodyBytes))
+	}
+
+	resp.Body.Close()
+	return nil
+}
+
 func markTasksAsCompleted(tasks *[]models.Task) error {
 	for _, task := range *tasks {
-		urlTask :=
-			fmt.Sprintf(
-				AlterTaskUrl,
-				environment.TaskListID,
-				task.Id,
-			)
-
-		log.Printf("executing request to %q\n", urlTask)
-
-		newReq, err := http.NewRequest(
-			http.MethodPatch,
-			urlTask,
-			strings.NewReader("{\"status\":\"completed\"}"),
-		)
+		err := updateTask(&task, "{\"status\":\"completed\"}")
 		if err != nil {
 			return err
 		}
-
-		newReq.Header.Set("Content-Type", "application/json")
-		resp, err := httpClient.Do(newReq)
-		if err != nil {
-			return err
-		}
-
-		if resp.StatusCode >= 400 {
-			log.Printf(
-				"unsuccessful request (status code '%v'). retrieving body...\n",
-				resp.StatusCode,
-			)
-
-			var bodyBytes []byte
-
-			bodyBytes, err = ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-
-			return errors.New(string(bodyBytes))
-		}
-
-		resp.Body.Close()
 	}
 
 	log.Printf(app_msgs.AllTasksCompleted(len(*tasks)))
