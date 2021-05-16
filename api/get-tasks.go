@@ -109,7 +109,6 @@ func FetchTasks(w http.ResponseWriter, r *http.Request) {
 
 		log.Println("could not parse all tasks:")
 		log.Println(errorsMsg)
-		app_msgs.SendBadRequest(&w, errorsMsg)
 		return
 	}
 
