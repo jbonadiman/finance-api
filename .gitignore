@@ -16,3 +16,9 @@
 .idea/
 
 .vercel
+
+internal/cronjob_functions/getTasks/secrets.json
+
+internal/cronjob_functions/getTasks/node_modules/
+
+internal/cronjob_functions/getTasks/.serverless/

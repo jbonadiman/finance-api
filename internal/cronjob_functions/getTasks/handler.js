@@ -1,0 +1,1 @@
+exports.getTasks = require('./service/getTasks').func;

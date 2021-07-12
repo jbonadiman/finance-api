@@ -1,0 +1,29 @@
+service: task-cron
+
+#configValidationMode: error
+
+app: get-tasks-rollover
+tenant: jbonadiman
+
+frameworkVersion: ">=1.43.0"
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  region: 'sa-east-1'
+  lambdaHashingVersion: '20201221'
+  timeout: 30 # in seconds
+  environment:
+    USERNAME: ${param:user}
+    PASSWORD: ${param:password}
+    API_URL: ${param:apiUrl}
+
+plugins:
+  - serverless-plugin-common-excludes
+  - serverless-plugin-include-dependencies
+
+functions:
+  get-tasks:
+    handler: handler.getTasks
+    events:
+      - schedule: rate(5 minutes)
