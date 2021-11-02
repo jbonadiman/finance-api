@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,8 +25,9 @@ import (
 
 const (
 	BaseUrl       = "https://graph.microsoft.com/v1.0/me/todo/lists/"
-	FetchTasksUrl = BaseUrl + "%v/tasks?$filter=status%%20eq%%20'notStarted'&$top=20"
+	FetchTasksUrl = BaseUrl + "%v/tasks?$filter=status%%20eq%%20'notStarted'"
 	AlterTaskUrl  = BaseUrl + "%v/tasks/%v"
+	InvalidTaskSymbol = "⚠"
 )
 
 var (
@@ -209,7 +209,7 @@ func getNotStartedTasks() (*[]models.Task, error) {
 }
 
 func markTaskAsInvalid(task *models.Task) error {
-	err := updateTask(task, fmt.Sprintf("{\"title\":\"⚠ %v\"}", task.Title))
+	err := updateTask(task, fmt.Sprintf("{\"title\":\"%v %v\"}", InvalidTaskSymbol, task.Title))
 	if err != nil {
 		return err
 	}
@@ -224,6 +224,10 @@ func parseTasks(tasks *[]models.Task) (*[]entities.Transaction, []error) {
 	wg := sync.WaitGroup{}
 
 	for i, task := range *tasks {
+		if strings.HasPrefix(task.Title, InvalidTaskSymbol) {
+			continue
+		}
+
 		wg.Add(1)
 		go func(index int, t models.Task) {
 			defer wg.Done()
@@ -398,40 +402,6 @@ func updateTask(task *models.Task, payload string) error {
 func markTasksAsCompleted(tasks *[]models.Task) error {
 	for _, task := range *tasks {
 		err := updateTask(&task, "{\"status\":\"completed\"}")
-		if err != nil {
-			return err
-		}
-	}
-
-	log.Printf(app_msgs.AllTasksCompleted(len(*tasks)))
-	return nil
-}
-
-func deleteTasks(tasks *[]models.Task) error {
-	authReq, err := http.NewRequest(http.MethodDelete, "", nil)
-	if err != nil {
-		return err
-	}
-
-	for _, task := range *tasks {
-		urlDeleteTask, err := url.Parse(
-			fmt.Sprintf(
-				AlterTaskUrl,
-				environment.TaskListID,
-				task.Id,
-			),
-		)
-
-		if err != nil {
-			return err
-		}
-
-		log.Printf("executing request to %q\n", urlDeleteTask)
-
-		newReq := authReq
-		newReq.URL = urlDeleteTask
-
-		_, err = httpClient.Do(newReq)
 		if err != nil {
 			return err
 		}

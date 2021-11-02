@@ -19,7 +19,6 @@ const (
 	MongoPasswordKey         = "MONGO_SECRET"
 
 	TaskListIDKey    = "TASK_LIST_ID"
-	ReadOnlyTasksKey = "READONLY_TASKS"
 )
 
 var (
@@ -42,7 +41,6 @@ var (
 
 var (
 	TaskListID    string
-	ReadOnlyTasks string
 )
 
 func init() {
@@ -66,8 +64,6 @@ func init() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-
-	ReadOnlyTasks, _ = loadVar(ReadOnlyTasksKey)
 }
 
 func loadMicrosoftVars() []string {
@@ -140,7 +136,7 @@ func loadVarGroup(envKeys *map[string]string, groupName string) []string {
 	localSlice := make([]string, 0)
 
 	log.Printf("loading %v environment variables...\n", groupName)
-	for key, _ := range *envKeys {
+	for key := range *envKeys {
 		v, err := loadVar(key)
 		if err != nil {
 			localSlice = append(localSlice, err.Error())
