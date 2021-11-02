@@ -401,6 +401,10 @@ func updateTask(task *models.Task, payload string) error {
 
 func markTasksAsCompleted(tasks *[]models.Task) error {
 	for _, task := range *tasks {
+		if strings.HasPrefix(task.Title, InvalidTaskSymbol) {
+			continue
+		}
+		
 		err := updateTask(&task, "{\"status\":\"completed\"}")
 		if err != nil {
 			return err
